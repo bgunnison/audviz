@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<!--
+Copyright 2012 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Eric Bidelman (ericbidelman@chromium.org)
+
+modified heavily by Brian Gunnison (briang@tekelite.com)
+-->
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <title>Gunnison</title>
+    <link href="../css/audioplayer.css" rel="stylesheet" type="text/css">
+
+</head>
+<body>
+<script src="../javascript/color_util.js"></script>
+<script src="../javascript/aud_viz.js"></script>
+<section>
+    <div>
+        <canvas id="viz_canvas" class="viz_canvas" width="512" height="400"> </canvas>
+    </div>
+</section>
+
+
+<script>
+(function() {
+
+
+// Check for non Web Audio API browsers.
+    if (!window.webkitAudioContext) {
+        alert("Web Audio isn't available in your browser. ");
+        //document.querySelector('#myaudio').classList.toggle('show');
+        //document.querySelector('aside').style.marginTop = '7em';
+        return;
+    }
+
+    
+    var canvas = document.getElementById('viz_canvas');
+    var canvasCtx = canvas.getContext('2d');
+    canvas.width = document.body.clientWidth / 1.4;
+    canvas.style.border = "#D0D0D0 3px solid";
+    //canvas.style.borderRadius = "15px"; //only rounds shadow
+    canvas.style.boxShadow = "3px 5px 3px #A0A0A0";
+    var canvasBackgroundColor = "#000000";
+    canvas.fillStyle =  canvasBackgroundColor;
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var logMsgs = [];
+
+    canvasLog("Canvas created");
+    function canvasShowLog() {
+        canvasCtx.font = "10pt Arial Bold";
+        canvasCtx.fillStyle = "#A0A0A0"
+        var yPos = 10;
+        for (var i = 0; i < logMsgs.length; i++)  {
+            canvasCtx.fillText(logMsgs[i],10, yPos);
+            yPos += 10;
+        }
+    }
+    function canvasLog(msg) {
+        logMsgs.push(msg);
+        console.log(msg);
+        canvasShowLog();
+    }
+
+    window.onresize = function() {
+        canvas.width = document.body.clientWidth/1.4;
+        //canvas.height = document.body.clientHeight;
+    };
+
+    var touchstart = 'mousedown';
+    var touchmove = 'mousemove';
+    var touchend = 'mouseup';
+
+    canvas.addEventListener(touchstart, function(e) {
+        function handle(x, y, touch) {
+
+        }
+
+        if(e.changedTouches) {
+            for(var i=0; i<e.changedTouches.length; i++) {
+                var touch = e.changedTouches[i];
+                handle(touch.pageX, touch.pageY, touch);
+            }
+        }
+        else {
+            mouseDown = true;
+            handle(e.pageX, e.pageY);
+
+            // unlocks web audio for iOS
+
+            if (audioSource != null) {
+                switch (audioState) {
+                    case "connected":
+                        // unlocks web audio for iOS
+                        audioSource.start(0);
+                        audioState = "playing";
+                        canvasLog("Play started");
+                        break;
+
+                    case "playing":
+                        // ramp down volume
+                        //audioSource.noteOff(0);
+                        audioState = "paused";
+                        break;
+
+                    case "paused":
+                        // ramp up volume
+                        //audioSource.noteOn(0);
+                        audioState = "playing";
+                        break;
+
+                    default:
+                        canvasLog("Unknown play state");
+                        break;
+
+                }
+            }
+            else {
+                canvasLog("audioSource is null");
+            }
+
+        }
+    });
+
+    audioState = "init";
+    var audioSource = null;
+
+    function AudioConnections(arrayBuffer) {
+        audioState = "loaded";
+        audioSource = audioContext.createBufferSource();
+        audioContext.decodeAudioData(arrayBuffer, function(buffer) {
+            audioSource.buffer = buffer;
+        });
+
+        audioSource.connect(analyser);
+        audioSource.connect(stereo);
+        stereo.connect(leftAnal,0);
+        stereo.connect(rightAnal,1);
+        audioSource.connect(audioContext.destination);
+        canvasLog("Audio connected");
+        audioState = "connected";
+
+        rafCallback();
+        canvasLog("Animation started");
+    }
+
+    function AudioLoad() {
+        var request = new XMLHttpRequest();
+        var url = localStorage.getItem("audToPlay");
+        request.open('GET', url, true);
+        request.responseType = 'arraybuffer';
+        request.onload = function(e) {
+            AudioConnections(request.response);
+        };
+        request.send();
+        canvasLog("Audio request sent");
+    };
+
+
+    var audioContext = new webkitAudioContext();
+    var analyser = audioContext.createAnalyser();
+    analyser.DefaultSmoothingTimeConstant = 0.9;
+    var stereo = audioContext.createChannelSplitter(2);
+    var leftAnal = audioContext.createAnalyser();
+    var rightAnal = audioContext.createAnalyser();
+    canvasLog("AudioContext created");
+    //console.log(leftAnal.frequencyBinCount)
+    //console.log(analyser.maxDecibels);
+    //console.log(analyser.minDecibels);
+    //console.log(CANVAS_WIDTH)
+
+
+    function rafCallback(time) {
+        window.webkitRequestAnimationFrame(rafCallback, canvas);
+
+        if (audioState != 'playing') {
+            return;
+        }
+
+        canvasCtx.fillStyle = canvasBackgroundColor;
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        DisplaySpectrum(canvasCtx, analyser);
+
+        DisplayLissajous(canvasCtx, leftAnal, rightAnal);
+
+        canvasShowLog();
+    }
+
+    function onLoad(e) {
+        canvasLog("Page loaded");
+        // Note: the audio graph must be connected after the page is loaded.
+        // Otherwise, the Audio tag just plays normally and ignores the audio
+        // context. More info: crbug.com/112368
+        AudioLoad();
+    }
+
+    window.addEventListener('load', onLoad, false);
+})();
+
+</script>
+</body>
+</html>
