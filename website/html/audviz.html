@@ -27,14 +27,18 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
 
 </head>
 <body>
+<script src="../javascript/spinners.js"></script>
 <script src="../javascript/color_util.js"></script>
 <script src="../javascript/aud_viz.js"></script>
+
 <section>
     <div>
         <canvas id="viz_canvas" class="viz_canvas" width="512" height="400"> </canvas>
     </div>
 </section>
-
+<div class='frame'>
+    <div id='spinner'><!-- spinner will go here --></div>
+</div>
 
 <script>
 (function() {
@@ -48,7 +52,7 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         return;
     }
 
-    
+
     var canvas = document.getElementById('viz_canvas');
     var canvasCtx = canvas.getContext('2d');
     canvas.width = document.body.clientWidth / 1.4;
@@ -58,7 +62,7 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
     var canvasBackgroundColor = "#000000";
     canvas.fillStyle =  canvasBackgroundColor;
     canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-
+    var spinner = null;
     var logMsgs = [];
 
     canvasLog("Canvas created");
@@ -139,6 +143,7 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
 
     audioState = "init";
     var audioSource = null;
+    var spinner = null;
 
     function AudioConnections(arrayBuffer) {
         audioState = "loaded";
@@ -155,18 +160,34 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         canvasLog("Audio connected");
         audioState = "connected";
 
+        stopSpinner(spinner);
         rafCallback();
         canvasLog("Animation started");
     }
 
+    function updateAudFileDownloadProgress(evt)
+    {
+        if (evt.lengthComputable)
+        {  //evt.loaded the bytes browser receive
+            //evt.total the total bytes seted by the header
+            // we will get the total once we implenment the JSON file info transaction
+            //var percentComplete = (evt.loaded / evt.total)*100;
+            console.log(evt.loaded)
+        }
+    }
+
+
     function AudioLoad() {
         var request = new XMLHttpRequest();
+        request.onprogress=updateAudFileDownloadProgress;
         var url = localStorage.getItem("audToPlay");
         request.open('GET', url, true);
         request.responseType = 'arraybuffer';
         request.onload = function(e) {
             AudioConnections(request.response);
         };
+
+        spinner = startSpinner(canvasCtx);
         request.send();
         canvasLog("Audio request sent");
     };
@@ -200,6 +221,8 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         DisplayLissajous(canvasCtx, leftAnal, rightAnal);
 
         canvasShowLog();
+
+        //DisplayControls();
     }
 
     function onLoad(e) {
