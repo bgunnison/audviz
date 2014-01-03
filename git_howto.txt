@@ -1,0 +1,21 @@
+git setup
+
+$ git config --list
+user.name=bgunnison
+user.email=bgunnison@gmail.com
+
+cd /cygdrive/c/Users/bgunnison/Desktop/audio_tech/js/gitrepo
+
+git init
+
+usage:
+
+git add --all *.css
+
+git commit -m "css"
+
+git push origin master
+
+
+git pull origin master
+
