@@ -27,30 +27,35 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
 
 </head>
 <body>
-<script src="../javascript/spinners.js"></script>
-<script src="../javascript/color_util.js"></script>
-<script src="../javascript/aud_viz.js"></script>
+
 
 <section>
+    <div style="margin-top:-350px;"><canvas id="playbutton" width="125" height="125"></canvas></div>
     <div>
         <canvas id="viz_canvas" class="viz_canvas" width="512" height="400"> </canvas>
     </div>
 </section>
-<div class='frame'>
-    <div id='spinner'><!-- spinner will go here --></div>
-</div>
+
+<script src="../javascript/spinners.js"></script>
+<script src="../javascript/aud_viz.js"></script>
 
 <script>
 (function() {
 
+var audioContext = null;
 
 // Check for non Web Audio API browsers.
-    if (!window.webkitAudioContext) {
-        alert("Web Audio isn't available in your browser. ");
-        //document.querySelector('#myaudio').classList.toggle('show');
-        //document.querySelector('aside').style.marginTop = '7em';
+
+    try {
+        // Fix up for prefixing
+        window.AudioContext = window.AudioContext||window.webkitAudioContext;
+        audioContext = new AudioContext();
+    }
+    catch(e) {
+        alert('Web Audio API is not supported in this browser');
         return;
     }
+
 
 
     var canvas = document.getElementById('viz_canvas');
@@ -90,6 +95,14 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
     var touchmove = 'mousemove';
     var touchend = 'mouseup';
 
+    var soundBuffer = null;
+    var playControls = new PlayControls(canvasCtx);
+    audioState = "init";
+    var audioSource = null;
+    var spinner = null;
+    var playTime = 0;
+    var pauseTime = 0;
+
     canvas.addEventListener(touchstart, function(e) {
         function handle(x, y, touch) {
 
@@ -111,20 +124,22 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
                 switch (audioState) {
                     case "connected":
                         // unlocks web audio for iOS
-                        audioSource.start(0);
+                        audioSource.start(0, 0);
                         audioState = "playing";
-                        canvasLog("Play started");
+
+                        playTime = audioContext.currentTime;
+                        canvasLog("Play started: " + playTime);
                         break;
 
                     case "playing":
                         // ramp down volume
-                        //audioSource.noteOff(0);
+
                         audioState = "paused";
                         break;
 
                     case "paused":
                         // ramp up volume
-                        //audioSource.noteOn(0);
+
                         audioState = "playing";
                         break;
 
@@ -141,16 +156,14 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         }
     });
 
-    audioState = "init";
-    var audioSource = null;
-    var spinner = null;
-
-    function AudioConnections(arrayBuffer) {
-        audioState = "loaded";
-        audioSource = audioContext.createBufferSource();
-        audioContext.decodeAudioData(arrayBuffer, function(buffer) {
-            audioSource.buffer = buffer;
-        });
+    function AudioConnect(buffer) {
+        if (buffer == null) {
+            canvasLog("decode buffer is null");
+            return;
+        }
+        audioSource.buffer = buffer;
+        canvasLog("Audio decoded");
+        audioState = "decoded";
 
         audioSource.connect(analyser);
         audioSource.connect(stereo);
@@ -159,10 +172,27 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         audioSource.connect(audioContext.destination);
         canvasLog("Audio connected");
         audioState = "connected";
-
         stopSpinner(spinner);
+
         rafCallback();
         canvasLog("Animation started");
+    }
+
+    function AudioDecode() {
+        if (soundBuffer == null) {
+            canvasLog("sound buffer is null");
+            return;
+        }
+        audioSource = audioContext.createBufferSource();
+        audioContext.decodeAudioData(soundBuffer, AudioConnect);
+        audioState = "decoding";
+    }
+
+    function AudioLoaded(arrayBuffer) {
+        audioState = "loaded";
+
+        soundBuffer = arrayBuffer;
+        AudioDecode();
     }
 
     function updateAudFileDownloadProgress(evt)
@@ -184,16 +214,26 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
         request.open('GET', url, true);
         request.responseType = 'arraybuffer';
         request.onload = function(e) {
-            AudioConnections(request.response);
+            AudioLoaded(request.response);
         };
 
         spinner = startSpinner(canvasCtx);
-        request.send();
+
+        request.onerror = function() {
+            // if there is an error, switch the sound to HTML Audio
+            canvasLog("Audio request error");
+        };
+        try {
+            request.send();
+        } catch (e) {
+            request.onerror();
+        }
+
         canvasLog("Audio request sent");
     };
 
 
-    var audioContext = new webkitAudioContext();
+   // var audioContext = new webkitAudioContext();
     var analyser = audioContext.createAnalyser();
     analyser.DefaultSmoothingTimeConstant = 0.9;
     var stereo = audioContext.createChannelSplitter(2);
@@ -209,20 +249,20 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
     function rafCallback(time) {
         window.webkitRequestAnimationFrame(rafCallback, canvas);
 
-        if (audioState != 'playing') {
-            return;
-        }
-
         canvasCtx.fillStyle = canvasBackgroundColor;
         canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (audioState != 'playing') {
+            playControls.drawPlayButton();
+            canvasShowLog();
+            return;
+        }
 
         DisplaySpectrum(canvasCtx, analyser);
 
         DisplayLissajous(canvasCtx, leftAnal, rightAnal);
 
         canvasShowLog();
-
-        //DisplayControls();
     }
 
     function onLoad(e) {

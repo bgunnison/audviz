@@ -42,10 +42,10 @@ function DisplaySpectrum(canvasCtx, analyser) {
             //console.log(peakMag);
         }
 
-        var rgb = HSVtoRGB(h,1,1);
         h += hinc;
 
-        canvasCtx.fillStyle = rgbToHex(rgb.r,rgb.g,rgb.b);
+        var hue = Math.round(h * 360);
+        canvasCtx.fillStyle = 'hsl(' + hue + ', 100%,50%)';
         //console.log(bin, ctx.fillStyle);
 
         var bh = canvasCtx.canvas.height * magnitude/peakMag;
@@ -83,17 +83,24 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
             //console.log(peakMag);
         }
         h = Math.sqrt(rd*rd + ld*ld)/64.0;
-        var rgb = HSVtoRGB(h,1,1);
+
 
         var x = Math.round(fx);
         var y = Math.round(fy);
-        //var grd = canvasCtx.createRadialGradient(0, 0,1,x+2, y+2,4);
-        //grd.addColorStop(0,rgbToHex(rgb.r,rgb.g,rgb.b));
-        //grd.addColorStop(1,"#A0A0A0");
 
-        canvasCtx.fillStyle = rgbToHex(rgb.r,rgb.g,rgb.b);
+        var hue = Math.round(h * 360);
+        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
+        canvasCtx.fillRect(x , y, 1, 1);
+        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 0.7)';
+        canvasCtx.fillRect(x+1, y, 1, 1);
+        canvasCtx.fillRect(x-1, y, 1, 1);
+        canvasCtx.fillRect(x,   y+1, 1, 1);
+        canvasCtx.fillRect(x,   y-1, 1, 1);
+        canvasCtx.fillRect(x+1, y+1, 1, 1);
+        canvasCtx.fillRect(x+1, y-1, 1, 1);
+        canvasCtx.fillRect(x-1, y+1, 1, 1);
+        canvasCtx.fillRect(x-1, y-1, 1, 1);
 
-        canvasCtx.fillRect(x , y, 3, 3);
     }
 
 }
