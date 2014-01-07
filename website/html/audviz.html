@@ -30,16 +30,21 @@ modified heavily by Brian Gunnison (briang@tekelite.com)
 
 
 <section>
-    <div style="margin-top:-350px;"><canvas id="playbutton" width="125" height="125"></canvas></div>
+
     <div>
         <canvas id="viz_canvas" class="viz_canvas" width="512" height="400"> </canvas>
+    </div>
+    <div>
+        <gui id = "audvizgui" class="vizgui"></gui>
     </div>
 </section>
 
 <script src="../javascript/spinners.js"></script>
+<script src="../javascript/dat.gui.js"></script>
 <script src="../javascript/aud_viz.js"></script>
 
 <script>
+
 (function() {
 
 var audioContext = null;
@@ -91,6 +96,15 @@ var audioContext = null;
         //canvas.height = document.body.clientHeight;
     };
 
+    // http://learningthreejs.com/blog/2011/08/14/dat-gui-simple-ui-for-demos/
+    var obj = { x: 5 };
+    var guiConfig = {autoPlace: false, };      // place it
+                    // height : 5 * 32 - 1 }; //5 lines
+    var gui = new dat.GUI(guiConfig );
+    gui.add(obj, 'x');
+    var customContainer = document.getElementById('audvizgui');
+    customContainer.appendChild(gui.domElement);
+
     var touchstart = 'mousedown';
     var touchmove = 'mousemove';
     var touchend = 'mouseup';
@@ -118,13 +132,11 @@ var audioContext = null;
             mouseDown = true;
             handle(e.pageX, e.pageY);
 
-            // unlocks web audio for iOS
-
             if (audioSource != null) {
                 switch (audioState) {
                     case "connected":
                         // unlocks web audio for iOS
-                        audioSource.start(0, 0);
+                        audioSource.start(0, pauseTime);
                         audioState = "playing";
 
                         playTime = audioContext.currentTime;
@@ -161,6 +173,8 @@ var audioContext = null;
             canvasLog("decode buffer is null");
             return;
         }
+
+        audioSource = audioContext.createBufferSource();
         audioSource.buffer = buffer;
         canvasLog("Audio decoded");
         audioState = "decoded";
@@ -183,7 +197,7 @@ var audioContext = null;
             canvasLog("sound buffer is null");
             return;
         }
-        audioSource = audioContext.createBufferSource();
+
         audioContext.decodeAudioData(soundBuffer, AudioConnect);
         audioState = "decoding";
     }
@@ -235,15 +249,17 @@ var audioContext = null;
 
    // var audioContext = new webkitAudioContext();
     var analyser = audioContext.createAnalyser();
-    analyser.DefaultSmoothingTimeConstant = 0.9;
+    analyser.DefaultSmoothingTimeConstant = 0.3;
+    analyser.minDecibels = -120;
     var stereo = audioContext.createChannelSplitter(2);
     var leftAnal = audioContext.createAnalyser();
     var rightAnal = audioContext.createAnalyser();
+    leftAnal.minDecibels = rightAnal.minDecibels = analyser.minDecibels;
     canvasLog("AudioContext created");
     //console.log(leftAnal.frequencyBinCount)
     //console.log(analyser.maxDecibels);
     //console.log(analyser.minDecibels);
-    //console.log(CANVAS_WIDTH)
+    console.log("Canvas width: ", + canvas.width)
 
 
     function rafCallback(time) {
@@ -258,7 +274,8 @@ var audioContext = null;
             return;
         }
 
-        DisplaySpectrum(canvasCtx, analyser);
+        // currently the sample rate is set by the audio card, it can be really high 192,000 for example
+        DisplaySpectrum(canvasCtx, analyser, audioContext.sampleRate);
 
         DisplayLissajous(canvasCtx, leftAnal, rightAnal);
 

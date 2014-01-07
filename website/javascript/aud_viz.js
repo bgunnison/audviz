@@ -7,29 +7,50 @@
 var peakMag = 1.0;
 var peakVol = 1.0;
 
-function DisplaySpectrum(canvasCtx, analyser) {
+function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
     analyser.getFloatFrequencyData(freqFloatData);
 
-    var bar_width = 1;
+    var barWidth = 1;
     var barAveNum = 1.0;
 
-    // map to 22 kHz
     var lastBin = analyser.frequencyBinCount;
-    var numBars = lastBin;
+    var fbin = sampleRate/(2.0 * lastBin);    // frequency range per bin
+    // not plotting frequencies over 20 kHz
+    var numBars = Math.round(20000/fbin);
 
-    if (canvasCtx.canvas.width < lastBin/2) {
+    if (numBars > canvasCtx.canvas.width ) {
         // average to fit info in small window
         barAveNum = 2.0;
         numBars /= 2;
     }
 
+    if (numBars <= canvasCtx.canvas.width/2) {
+        barWidth = 2;
+    }
+
+    if (numBars <= canvasCtx.canvas.width / 4) {
+        barWidth = 4;
+    }
+
+    if (numBars <= canvasCtx.canvas.width / 8) {
+        barWidth = 8;
+    }
+
+    canvasCtx.lineCap = 'round';
+
     // Draw rectangle for each frequency bin.
     var bin = 0;
-    var h = 0.0;
-    var hinc = 1.0/numBars;
+    var hue = 0.0;
+    // http://www.w3.org/TR/css3-color/#hsla-color
+    var hinc = 270.0/numBars;
 
     for (var i = 0; i < numBars; ++i) {
+        if (i > canvasCtx.canvas.width) {
+            //don't render if outside the canvas
+            break;
+        }
+
         var magnitude = 0;
         for (var b = 0; b < barAveNum; b++) {
             magnitude += freqFloatData[bin++];
@@ -42,15 +63,13 @@ function DisplaySpectrum(canvasCtx, analyser) {
             //console.log(peakMag);
         }
 
-        h += hinc;
+        hue += hinc;
 
-        var hue = Math.round(h * 360);
-        canvasCtx.fillStyle = 'hsl(' + hue + ', 100%,50%)';
-        //console.log(bin, ctx.fillStyle);
+        canvasCtx.fillStyle = 'hsl(' + Math.round(hue) + ', 100%,50%)';
 
         var bh = canvasCtx.canvas.height * magnitude/peakMag;
 
-        canvasCtx.fillRect(i , canvasCtx.canvas.height, bar_width, -bh);
+        canvasCtx.fillRect(i * barWidth, canvasCtx.canvas.height, barWidth, -bh);
 
     }
 }
@@ -62,12 +81,12 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
     var datar = new Uint8Array(rightAnal.frequencyBinCount);
     rightAnal.getByteTimeDomainData(datar);
 
-    canvasCtx.lineCap = 'round';
     var xc = canvasCtx.canvas.width/2;
     var yc = canvasCtx.canvas.height/2;
 
     var scaler = canvasCtx.canvas.height/(peakVol * 2);
-    //console.log(scaler);
+   
+    // maake the hue follow the beat
     var h = 0.0;
     var hinc = 1.0/canvasCtx.canvas.height;
 
@@ -82,13 +101,13 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
             peakVol = ld;
             //console.log(peakMag);
         }
-        h = Math.sqrt(rd*rd + ld*ld)/64.0;
-
 
         var x = Math.round(fx);
         var y = Math.round(fy);
 
+        h = Math.sqrt(rd * rd + ld * ld) / 64.0;
         var hue = Math.round(h * 360);
+
         canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
         canvasCtx.fillRect(x , y, 1, 1);
         canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 0.7)';
