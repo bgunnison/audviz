@@ -15,7 +15,7 @@ Author: Brian Gunnison (briang@tekelite.com)
 */
 
 var peakMag = 1.0;
-var peakVol = 1.0;
+var peakVolAnal = 1.0;
 
 function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
@@ -27,7 +27,7 @@ function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     var lastBin = analyser.frequencyBinCount;
     var fbin = sampleRate/(2.0 * lastBin);    // frequency range per bin
     // not plotting frequencies over 20 kHz
-    var numBars = Math.round(20000/fbin);
+    var numBars = Math.round(22100/fbin);
 
     if (numBars > canvasCtx.canvas.width ) {
         // average to fit info in small window
@@ -131,5 +131,57 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
         canvasCtx.fillRect(x-1, y-1, 1, 1);
 
     }
+}
 
+var peakVolScript = .001;
+    // pass in object with everything we need
+function DisplayLissajousScript(timeDomainConfig) {
+
+    var canvasCtx = timeDomainConfig["canvasCtx"];
+    var e = timeDomainConfig["event"];
+
+    // these values are only valid in the scope of the onaudioprocess event
+    var datal = e.inputBuffer.getChannelData(0);
+    var datar = e.inputBuffer.getChannelData(1);
+
+    var xc = canvasCtx.canvas.width/2;
+    var yc = canvasCtx.canvas.height/2;
+
+    var scaler = canvasCtx.canvas.height/(peakVolScript * 2);
+
+    // make the hue follow the beat
+    var h = 0.0;
+    var hinc = 1.0/canvasCtx.canvas.height;
+
+    for (var i = 0; i < datal.length; i++) {
+
+        var ld = datal[i];
+        var rd = datar[i];
+        var fx = (ld * scaler) + xc;
+        var fy = (rd * scaler) + yc;
+
+        if (ld > peakVolScript) {
+            peakVolScript = ld;
+            //console.log(peakMag);
+        }
+
+        var x = Math.round(fx);
+        var y = Math.round(fy);
+
+        h = Math.sqrt(rd * rd + ld * ld);
+        var hue = Math.round(h * 360);
+
+        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
+        canvasCtx.fillRect(x , y, 1, 1);
+        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 0.7)';
+        canvasCtx.fillRect(x+1, y, 1, 1);
+        canvasCtx.fillRect(x-1, y, 1, 1);
+        canvasCtx.fillRect(x,   y+1, 1, 1);
+        canvasCtx.fillRect(x,   y-1, 1, 1);
+        canvasCtx.fillRect(x+1, y+1, 1, 1);
+        canvasCtx.fillRect(x+1, y-1, 1, 1);
+        canvasCtx.fillRect(x-1, y+1, 1, 1);
+        canvasCtx.fillRect(x-1, y-1, 1, 1);
+
+    }
 }
