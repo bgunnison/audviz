@@ -14,8 +14,18 @@ limitations under the License.
 Author: Brian Gunnison (briang@tekelite.com)
 */
 
+/*
+ Strict mode makes several changes to normal JavaScript semantics.
+ First, strict mode eliminates some JavaScript silent errors by changing them to throw errors.
+ Second, strict mode fixes mistakes that make it difficult for JavaScript engines to perform optimizations:
+ strict mode code can sometimes be made to run faster than identical code that's not strict mode.
+ Third, strict mode prohibits some syntax likely to be defined in future versions of ECMAScript.
+ */
+ "use strict";
+
+
 var peakMag = 1.0;
-var peakVolAnal = 1.0;
+
 
 function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
@@ -84,6 +94,7 @@ function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     }
 }
 
+var peakVolAnal = 1.0;
 // ave frequency over low mid high, scale 3 LR lissas
 function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
     var datal = new Uint8Array(leftAnal.frequencyBinCount);
@@ -94,8 +105,8 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
     var xc = canvasCtx.canvas.width/2;
     var yc = canvasCtx.canvas.height/2;
 
-    var scaler = canvasCtx.canvas.height/(peakVol * 2);
-   
+    var scaler = canvasCtx.canvas.height/(peakVolAnal * 2);
+
     // maake the hue follow the beat
     var h = 0.0;
     var hinc = 1.0/canvasCtx.canvas.height;
@@ -107,8 +118,8 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
         var fx = (ld * scaler) + xc;
         var fy = (rd * scaler) + yc;
 
-        if (ld > peakVol) {
-            peakVol = ld;
+        if (ld > peakVolAnal) {
+            peakVolAnal = ld;
             //console.log(peakMag);
         }
 
