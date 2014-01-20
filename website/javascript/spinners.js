@@ -1,13 +1,16 @@
 
 
 
-var drawSpinner = function(ctx, lines, date) {
+var drawSpinner = function(ctx, lines, date, cbFunc) {
     var cW = ctx.canvas.width/4,
         cH = ctx.canvas.height/4;
     var rotation = parseInt(((new Date() - date) / 1000) * lines) / lines;
     ctx.save();
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    if (cbFunc != null) {
+        cbFunc();
+    }
     ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
     ctx.rotate(Math.PI * 2 * rotation);
     ctx.lineCap = "round";
@@ -24,12 +27,12 @@ var drawSpinner = function(ctx, lines, date) {
     ctx.restore();
 };
 
-function startSpinner(canvasCtx) {
+function StartSpinner(canvasCtx, cbFunc) {
     var date = new Date();
-    return window.setInterval(function() { drawSpinner(canvasCtx, 12, date);}, 1000 / 30);
+    return window.setInterval(function() { drawSpinner(canvasCtx, 12, date, cbFunc);}, 1000 / 30);
 }
 
-function stopSpinner(timerId) {
+function StopSpinner(timerId) {
     window.clearInterval(timerId);
 }
 
@@ -156,8 +159,4 @@ function PlayControls(ctx) {
         this.ctx.restore();
         this.ctx.restore();
     }
-
-
-
-
 }

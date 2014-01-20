@@ -95,7 +95,7 @@ function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
 }
 
 var peakVolAnal = 1.0;
-// ave frequency over low mid high, scale 3 LR lissas
+
 function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
     var datal = new Uint8Array(leftAnal.frequencyBinCount);
     leftAnal.getByteTimeDomainData(datal);
@@ -127,7 +127,7 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
         var y = Math.round(fy);
 
         h = Math.sqrt(rd * rd + ld * ld) / 64.0;
-        var hue = Math.round(h * 360);
+        var hue = 270 - Math.round(h * 360);
 
         canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
         canvasCtx.fillRect(x , y, 1, 1);
@@ -180,7 +180,8 @@ function DisplayLissajousScript(timeDomainConfig) {
         var y = Math.round(fy);
 
         h = Math.sqrt(rd * rd + ld * ld);
-        var hue = Math.round(h * 360);
+        // low volume is "less hot" so we start with blue to red spectrum
+        var hue = 270 - Math.round(h * 360);
 
         canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
         canvasCtx.fillRect(x , y, 1, 1);
@@ -195,4 +196,74 @@ function DisplayLissajousScript(timeDomainConfig) {
         canvasCtx.fillRect(x-1, y-1, 1, 1);
 
     }
+}
+
+function DrawScope(canvasCtx, dataBuf, hue) {
+    var xPix = canvasCtx.canvas.width;
+    var yPixh = canvasCtx.canvas.height / 2;
+    var scaler = yPixh / peakVolScope;
+    var lcolor = 'hsla(' + hue + ', 100%,50%, 1)';
+
+    canvasCtx.strokeStyle = lcolor;
+
+    canvasCtx.shadowColor = "blue";
+
+    canvasCtx.beginPath();
+
+    if (xPix < dataBuf.Length) {
+        var skip = Math.ceil(xPix / (dataBuf.Length - xPix));
+    }
+
+    var d = 0;
+
+    for (var i = 0; i < xPix - 1; i++) {
+
+        var ldf = yPixh - Math.round(dataBuf[d] * scaler);
+        var ldt = yPixh - Math.round(dataBuf[d + 1] * scaler);
+        var rd = yPixh - Math.round(dataBuf[d] * scaler);
+
+        canvasCtx.moveTo(i, ldf);
+        canvasCtx.lineTo(i + 1, ldt);
+
+        d += 1;
+        if (d >= dataBuf.Length - 1) {
+            break;
+        }
+
+        if (dataBuf[d] > peakVolScope) {
+            peakVolScope = dataBuf[d];
+        }
+    }
+
+    canvasCtx.stroke();
+}
+
+var peakVolScope = .001;
+// pass in object with everything we need
+function DisplayOscilloscope(timeDomainConfig) {
+
+    var canvasCtx = timeDomainConfig["canvasCtx"];
+    var e = timeDomainConfig["event"];
+
+    // these values are only valid in the scope of the onaudioprocess event
+    var ldata = e.inputBuffer.getChannelData(0);
+    var rdata = e.inputBuffer.getChannelData(1);
+
+    var dataLength = ldata.length;
+    if(dataLength < 32) {
+        return;
+    }
+
+    canvasCtx.save();
+
+    canvasCtx.shadowBlur = 40;
+    canvasCtx.lineWidth = 4;
+   
+    
+    canvasCtx.lineJoin = "round";
+    //canvasCtx.strokeStyle = gradient;
+    DrawScope(canvasCtx, ldata, 200);
+    DrawScope(canvasCtx, rdata, 100);
+
+    canvasCtx.restore();
 }

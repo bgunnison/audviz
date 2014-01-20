@@ -16,91 +16,82 @@
 
 
 "use strict";
-/*
-$(function () {
-    // setup master volume
-    $("#masterVolumeSlider").slider({
-        value: 50,
-        orientation: "horizontal",
-        range: "min",
-        animate: true
-    //lide: function (event, ui) {
-    //     this.element.trigger('aGuiMasterVolumeChange', ui.value);
-    //}
-//slide: function (event, ui) {
-    //    console.log("slider: " + ui.value);
-    //}
-});
 
-// setup graphic EQ
-$("#eq > span").each(function () {
-    // read initial values from markup and remove that
-    var value = parseInt($(this).text(), 10);
-    $(this).empty().slider({
-    value: value,
-    range: "min",
-    animate: true,
-    orientation: "vertical"
-    });
-});
-});
+// a database of gui control config
+// used by app to hook to gui and manage gui layout
+var gui_config = {
+    "central_knob_div_id":          "central_control_vis",
+    "central_knob_change_event":    "evtChange",
+    "central_knob_visibility":      "hidden",    // we start hidden
+    "central_knob_height":          240,
+    "central_knob_width":           240,
+    "central_knob_max_range":       1000
+};
 
-function SeeSlide (event, ui) {
-    console.log("slider: " + ui.value);
+function CenterControl(canvas){
+
+    this.canvas = canvas;
+    this.element = document.getElementById('central_control_vis');
+
+    function Init(element) {
+        // init gui visibility
+        console.log("Control init")
+
+        var evtck = document.createEvent("Event");
+        evtck.initEvent("evtCentralControlChange", true, true);
+
+        function CentralControlChange(value) {
+            //console.log("change : " + value);
+            evtck.masterVolume = value;
+            document.dispatchEvent(evtck);
+        }
+
+        var myColor = 'blue';
+        var myKnob = $(".dial").knob({
+            'min':0,
+            'max':1000,
+            'readOnly': false,
+            'width': 320,
+            'height': 320,
+            'fgColor': myColor,
+            'dynamicDraw': true,
+            'thickness': 0.35,
+            //'tickColorizeValues': true,
+            'skin':'tron',
+            'lineCap':'round',
+            'displayInput': false,
+            'angleOffset': -145,
+            'angleArc': 290,
+            //'displayPrevious':true
+            change : CentralControlChange
+        });
+
+        // some day I'll figure out how to bind to the change event in the knob
+        //$('.dial').on('change', function(v) {console.log("vol: " + v) });
+
     }
 
-$("#masterVolumeSlider").on("slide", SeeSlide);
 
-$("#masterVolumeSlider").trigger("slide");
-*/
-
-
-$(document).ready(function (){
-    // init gui visibility
-    console.log("Control init")
-    document.getElementById('aud_gui_control_vis').style.visibility = 'hidden';
-
-    var evtmv = document.createEvent("Event");
-    evtmv.initEvent("evtMasterVolume",true,true);
-
-    function masterVolumeChange(value) {
-        //console.log("change : " + value);
-        evtmv.masterVolume = value;
-        document.dispatchEvent(evtmv);
+    this.CenterOnCanvas = function () {
+        var lPos = (this.canvas.offsetLeft + this.canvas.width / 2) - this.element.offsetWidth / 2 + "px";
+        this.element.style.marginLeft = lPos;
+        var tPos = (this.canvas.offsetTop + this.canvas.height / 2) - this.element.offsetHeight / 2 + "px";
+        this.element.style.marginTop = tPos;
     }
 
-    /*
-     $.event.trigger({
-     type: "newMessage",
-     message: "Hello World!",
-     time: new Date()
-     });
+    this.Visible = function() {
+        this.element.style.visibility = 'visible';
+    }
 
-     Handlers can now subscribe to “newMessage” events, e.g.
+    this.Hidden = function() {
+        this.element.style.visibility = 'hidden';
+    }
 
-     $(document).on("newMessage", newMessageHandler);
 
-     */
 
-    var myColor = 'blue';
-    var myKnob = $(".dial").knob({
-    'min':0,
-    'max':1000,
-    'readOnly': false,
-    'width': 220,
-    'height': 220,
-    'fgColor': myColor,
-    'dynamicDraw': true,
-    'thickness': 0.3,
-    'tickColorizeValues': true,
-    'skin':'tron',
-    'lineCap':'round',
-     //'displayPrevious':true
-     change : masterVolumeChange
-    });
-
-    // some day I'll figure out how to bind to the change event in the knob
-    //$('.dial').on('change', function(v) {console.log("vol: " + v) });
-
+    Init();
+    this.Hidden();
+    this.CenterOnCanvas();
     $('.dial').val(500).trigger('change');
-});
+
+}
