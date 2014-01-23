@@ -158,7 +158,7 @@ function aud_manage() {
     var spinner = null;
     var playTime = 0;
     var pauseTime = 0;
-    var useAudioStream = true;
+    var useAudioStream = !iOS;
     var audioStream = null;
 
     function PlayStart() {
