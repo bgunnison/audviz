@@ -40,39 +40,6 @@ function PlayControls(ctx) {
 
     this.ctx = ctx;
 
-
-    /*
-    ctx.canvas.addEventListener('mouseover', function(e) {
-        if (this.playing) {
-            this.drawPauseButton(STROKE_AND_FILL);
-        } else {
-            this.drawPlayButton(STROKE_AND_FILL);
-        }
-        ctx.save();
-        ctx.lineWidth += 3;
-        ctx.circle(R, R, R - ctx.lineWidth + 1);
-        ctx.restore();
-    }, true);
-
-    ctx.canvas.addEventListener('mouseout', function(e) {
-        if (this.playing) {
-            this.drawPauseButton(STROKE_AND_FILL);
-        } else {
-            this.drawPlayButton(STROKE_AND_FILL);
-        }
-    }, true);
-
-    ctx.canvas.addEventListener('click', function(e) {
-
-        if (this.playing) {
-            this.drawPauseButton();
-            this.playing = false;
-        } else {
-            this.drawPlayButton();
-            this.playing = true;
-        }
-    }, true);
-*/
     function line(obj, x1, y1, x2, y2) {
         obj.ctx.lineCap = 'round';
         obj.ctx.beginPath();
@@ -110,21 +77,21 @@ function PlayControls(ctx) {
         }
     }
 
-    function triangle (obj, x, y, width, rotate, fill) {
+    this.triangle = function ( x, y, width, rotate, fill) {
         // Stroked triangle.
         var h = 0.866 * width;
-        obj.ctx.rotate(Math.PI * rotate/180.0);
-        obj.ctx.beginPath();
-        obj.ctx.moveTo(x, y + (0.5 * h));
-        obj.ctx.lineTo(x + (0.5 * width), y - (0.5 * h));
-        obj.ctx.lineTo(x - (0.5 * width), y - (0.5 * h));
-        obj.ctx.closePath();
+        this.ctx.rotate(Math.PI * rotate/180.0);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, y + (0.5 * h));
+        this.ctx.lineTo(x + (0.5 * width), y - (0.5 * h));
+        this.ctx.lineTo(x - (0.5 * width), y - (0.5 * h));
+        this.ctx.closePath();
 
         if (fill) {
-            obj.ctx.fillStyle = 'rgba(255,255,255,1)';
-            obj.ctx.fill();
+            this.ctx.fillStyle = 'rgba(255,255,255,1)';
+            this.ctx.fill();
         } else {
-            obj.ctx.stroke();
+            this.ctx.stroke();
         }
 
     }
@@ -141,7 +108,7 @@ function PlayControls(ctx) {
         this.ctx.translate(this.ctx.canvas.width / 2, this.ctx.canvas.height / 2);
         //clear(this);
         circle(this, 0, 0, cSize - this.ctx.lineWidth + 1, 20, false);
-        triangle(this, 0, 0 + 20, 120, 30 , true);
+        this.triangle(0, 0 + 20, 120, 30 , true);
 
         this.ctx.restore();
     }

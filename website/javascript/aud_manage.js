@@ -28,9 +28,9 @@ function aud_manage() {
 
     // iOS requires a user to start playing rather than as soon as we can
     var iOS = false;
-    var p = navigator.platform;
-    console.log(p);
-    if( p === 'iPad' || p === 'iPhone' || p === 'iPod' ){
+    var platform = navigator.platform;
+    console.log(platform);
+    if( platform === 'iPad' || platform === 'iPhone' || platform === 'iPod' ){
         iOS = true;
     }
 
@@ -79,7 +79,7 @@ function aud_manage() {
         var yPos = 10;
         for (var i = 0; i < logMsgs.length; i++)  {
             canvasCtx.fillText(logMsgs[i],10, yPos);
-            yPos += 10;
+            yPos += 11;
         }
     }
 
@@ -96,7 +96,7 @@ function aud_manage() {
     }
 
     // GUI
-    var centerControl = new CenterControl(canvas);
+    var centerControl = new CenterControl(canvasCtx);
 
     window.onresize = function() {
         canvas.width = document.body.clientWidth/1.4;
@@ -115,12 +115,9 @@ function aud_manage() {
             var rect = canvas.getBoundingClientRect();
             var xc = x - rect.left;
             var yc = y - rect.top;
-            if (yc < 20 && xc > canvas.width - 20) {
-                centerControl.Visible();
-            } else {
-                centerControl.Hidden();
+            if (yc < 100 && xc > canvas.width - 50) {
+                centerControl.ToggleVisible();
             }
-
         }
 
         if(e.changedTouches) {
@@ -133,12 +130,10 @@ function aud_manage() {
             handle(e.pageX, e.pageY);
 
             switch (audioState) {
-                case "init":
+                case "userstartplay":
                     // unlocks web audio for iOS
-                    if(iOS) {
-                        AudioLoad();
-                    }
-                break;
+                    PlayStart();
+                    break;
 
                 case "playing":
                     // ramp down volume
@@ -166,7 +161,7 @@ function aud_manage() {
     var useAudioStream = true;
     var audioStream = null;
 
-    function playStart() {
+    function PlayStart() {
         if (useAudioStream) {
             audioStream.play();
         } else {
@@ -175,6 +170,22 @@ function aud_manage() {
         audioState = "playing";
         playTime = audioContext.currentTime;
         canvasLog("Play started");
+    }
+
+    function AudioUserPlay() {
+        if (spinner) {
+            StopSpinner(spinner);
+            spinner = null;
+            ClearCanvas();
+        }
+
+        playControls = new PlayControls(canvasCtx);
+        playControls.drawPlayButton();
+
+        canvasLog("Waiting for play");
+        audioState = "userstartplay";
+
+        canvasShowLog();
     }
 
     function AudioConnect() {
@@ -201,23 +212,20 @@ function aud_manage() {
 
         if (spinner) {
             StopSpinner(spinner);
+            spinner = null;
             ClearCanvas();
         }
 
-        playStart();
+        if(iOS) {
+         // we need user to start
+            AudioUserPlay();
+        } else {
+            PlayStart();
+        }
         canvasLog("Animation started");
+        rafCallback();
     }
 
-    function AudioUserPlay() {
-        if (spinner) {
-           StopSpinner(spinner);
-            ClearCanvas();
-        }
-
-        playControls = new PlayControls(canvasCtx);
-        playControls.drawPlayButton();
-        canvasShowLog();
-    }
 
     function AudioBuffer(buffer) {
         if (buffer == null) {
@@ -242,6 +250,7 @@ function aud_manage() {
 
         audioContext.decodeAudioData(soundBuffer, AudioBuffer,
             function () { alert("error decoding!"); });
+
         audioState = "decoding";
     }
 
@@ -253,10 +262,7 @@ function aud_manage() {
 
     function updateAudFileDownloadProgress(evt) {
         if (evt.lengthComputable) {
-            //evt.loaded the bytes browser receive
-            //evt.total the total bytes seted by the header
-            // we will get the total once we implenment the JSON file info transaction
-            //var percentComplete = (evt.loaded / evt.total)*100;
+
             console.log(evt.loaded)
         }
     }
@@ -276,13 +282,6 @@ function aud_manage() {
 
             audioStream = new Audio(url);
 
-            if(iOS) {
-                // iOS requires a start touch
-                audioStream.autoplay = false;
-                // load the entire audio file when the page loads
-                //audioStream.preload = "auto";
-            }
-
             audioStream.addEventListener('loadedmetadata', function(e) {
                 canvasLog("Audio length: " + Math.round(audioStream.duration) + " secs");
             });
@@ -295,18 +294,23 @@ function aud_manage() {
                 audioSource = audioContext.createMediaElementSource(audioStream);
                 canvasLog("Audio stream ready");
                 audioState = "loaded";
-               
                 AudioConnect();
-               
             });
 
             audioStream.addEventListener('ended', function() {
+                ClearCanvas();
                 canvasLog("Play end");
+                canvasLog("Peak anim: " + rtData.AnimPeak.toFixed(4));
+                var ave = rtData.AnimTotal / rtData.AnimCount;
+                canvasLog("Ave anim: " + ave.toFixed(4));
+                canvasShowLog();
             }, false);
 
             audioStream.addEventListener('error', function() {
                 FatalError("Audio error: " + url);
             }, false);
+
+            audioStream.load(); // needed for play on iOS
 
         } else {
 
@@ -335,32 +339,37 @@ function aud_manage() {
     }
 
     function EvtHandlerCentralControlChange(evt) {
-        if (masterGainNode){
-
+        if (masterGainNode) {
             var linearGain = evt.masterVolume/1000.0;
             // human perception in general is logarithmic
             var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
             masterGainNode.gain.value = expGain;
-            //console.log("Gain: " + expGain);
         }
     }
 
+    document.addEventListener("evtCentralControlChange", EvtHandlerCentralControlChange, false);
+
+    var scriptProcessorSize = 1024;
+    var defaultMasterGain = 0.5;
+
     var masterGainNode = audioContext.createGainNode();
-    masterGainNode.gain.value = 0.5;
-    document.addEventListener("evtCentralControlChange",EvtHandlerCentralControlChange,false);
+    masterGainNode.gain.value = defaultMasterGain;
 
     var analyser = audioContext.createAnalyser();
     analyser.DefaultSmoothingTimeConstant = 0.3;
     analyser.minDecibels = -110;
 
     var timeDomainConfig = {};
-    timeDomainConfig["canvasCtx"] = canvasCtx;
+    timeDomainConfig.ldata = new Float32Array(scriptProcessorSize);
+    timeDomainConfig.rdata = new Float32Array(scriptProcessorSize);
+
+    timeDomainConfig.canvasCtx = canvasCtx;
     // script processor node needs to go somewhere to process
     var blackHoleGainNode = null;
 
     // see if we can replace two analyzers with the real thing
     var useScriptProcForTimeDomain = 1;
-    timeDomainConfig["useScriptNode"] = useScriptProcForTimeDomain;
+    timeDomainConfig.useScriptNode = useScriptProcForTimeDomain;
     if (useScriptProcForTimeDomain) {
         // We can see float data of both channels and animate at audio buffer rate
         // adjust buffer size by sample rate in future, 44100 -> 192000
@@ -368,32 +377,77 @@ function aud_manage() {
         // so we use a gain node set to 0
         // 256, 512, 1024, 2048, 4096, 8192, 16384
         //
-        stereo = audioContext.createScriptProcessor(2048, 2, 2);
+        stereo = audioContext.createScriptProcessor(scriptProcessorSize, 2, 2);
         blackHoleGainNode = audioContext.createGainNode();
         blackHoleGainNode.gain.value = 0;
 
         // we have two async loops, animate at frame rate and audio process at sample rate/buffer size rate
-        // can we animate at audio rate?
-        stereo.onaudioprocess = audioCanvasAnimate;
-        //stereo.onaudioprocess = audioCaptureTimeDomain;
+        // we can animate at audio rate, but this does not use requestAnimationFrame,
+        // which is friendlier say if the canvas is in the background
+        // so we do a copy of the realtime data
+        //stereo.onaudioprocess = audioCanvasAnimate;
+        stereo.onaudioprocess = audioCaptureTimeDomain;
     } else {
         // we get low rez 8 bit time domain in stereo
         // and we look at it at animation frame rate which can't be right
         stereo = audioContext.createChannelSplitter(2);
         var leftAnal = audioContext.createAnalyser();
         var rightAnal = audioContext.createAnalyser();
-        timeDomainConfig["left"] = leftAnal;
-        timeDomainConfig["right"] = rightAnal;
+        timeDomainConfig.left = leftAnal;
+        timeDomainConfig.right = rightAnal;
         leftAnal.minDecibels = rightAnal.minDecibels = analyser.minDecibels;
     }
-    canvasLog("AudioContext created");
-    //console.log(leftAnal.frequencyBinCount)
-    //console.log(analyser.maxDecibels);
-    //console.log(analyser.minDecibels);
+    canvasLog("Audio nodes created");
+
+    var toType = function(obj) {
+        return ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
+    }
+
+    function audioCaptureTimeDomain(event) {
+        // these values are only valid in the scope of the onaudioprocess event
+        var ldata = event.inputBuffer.getChannelData(0);
+        var rdata = event.inputBuffer.getChannelData(1);
+
+        // have to copy here as the buffers are potentially undefined outside this event
+        // be nice to use splice...
+        for (var i = 0; i < scriptProcessorSize; i++) {
+            timeDomainConfig.ldata[i] = ldata[i];
+            timeDomainConfig.rdata[i] = rdata[i];
+        }
+    }
+
+    // gather some real-time data
+    var rtData = {
+        AnimCount:    0,
+        AnimTotal:    0,
+        AnimPeak:     0
+    };
+
+    function rtAnimationMeasure(start) {
+        var dur = audioContext.currentTime - start;
+        if (dur > rtData.AnimPeak) {
+            rtData.AnimPeak = dur;
+        }
+        rtData.AnimCount++;
+        rtData.AnimTotal += dur;
+    }
 
     function audioCanvasAnimate(event) {
 
+        var rtAnimationStart = audioContext.currentTime;
+
         ClearCanvas();
+
+        centerControl.Draw();
+
+        if (audioState == "userstartplay") {
+            if (playControls) {
+                playControls.drawPlayButton();
+            }
+            canvasShowLog();
+            return;
+        }
+
 
         if (audioState != 'playing') {
             canvasShowLog();
@@ -403,38 +457,29 @@ function aud_manage() {
         // currently the sample rate is set by the audio card, it can be really high 192,000 for example
         DisplaySpectrum(canvasCtx, analyser, audioContext.sampleRate);
 
-        timeDomainConfig["event"] = event;
-
-        DisplayLissajousScript( timeDomainConfig);
+        DisplayLissajousScript(timeDomainConfig);
 
         DisplayOscilloscope(timeDomainConfig);
 
         canvasShowLog();
+
+        rtAnimationMeasure(rtAnimationStart);
+
     }
 
-    /*
+
     // runs at animate rate
     function rafCallback(time) {
         window.webkitRequestAnimationFrame(rafCallback, canvas);
 
         audioCanvasAnimate(time);
     }
-    */
 
     // start ball rolling
-    if (iOS) {
-        AudioUserPlay();
-    } else {
-        AudioLoad();
-    }
-
+    AudioLoad();
 }
 
 function onLoad(e) {
-
-    // make canvas appear
-    //$(".viz_canvas").toggleClass("viz_canvas_appear");
-
     // Note: the audio graph must be connected after the page is loaded.
     // Otherwise, the Audio tag just plays normally and ignores the audio
     // context. More info: crbug.com/112368

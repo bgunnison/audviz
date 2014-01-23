@@ -149,11 +149,8 @@ var peakVolScript = .001;
 function DisplayLissajousScript(timeDomainConfig) {
 
     var canvasCtx = timeDomainConfig["canvasCtx"];
-    var e = timeDomainConfig["event"];
-
-    // these values are only valid in the scope of the onaudioprocess event
-    var datal = e.inputBuffer.getChannelData(0);
-    var datar = e.inputBuffer.getChannelData(1);
+    var ldata = timeDomainConfig["ldata"];
+    var rdata = timeDomainConfig["rdata"];
 
     var xc = canvasCtx.canvas.width/2;
     var yc = canvasCtx.canvas.height/2;
@@ -164,10 +161,10 @@ function DisplayLissajousScript(timeDomainConfig) {
     var h = 0.0;
     var hinc = 1.0/canvasCtx.canvas.height;
 
-    for (var i = 0; i < datal.length; i++) {
+    for (var i = 0; i < ldata.length; i++) {
 
-        var ld = datal[i];
-        var rd = datar[i];
+        var ld = ldata[i];
+        var rd = rdata[i];
         var fx = (ld * scaler) + xc;
         var fy = (rd * scaler) + yc;
 
@@ -202,11 +199,12 @@ function DrawScope(canvasCtx, dataBuf, hue) {
     var xPix = canvasCtx.canvas.width;
     var yPixh = canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
-    var lcolor = 'hsla(' + hue + ', 100%,50%, 1)';
+    var lcolor = 'hsla(' + hue + ', 100%,50%, 0.8)';
 
     canvasCtx.strokeStyle = lcolor;
 
-    canvasCtx.shadowColor = "blue";
+    hue += 10;
+    canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
 
     canvasCtx.beginPath();
 
@@ -220,7 +218,6 @@ function DrawScope(canvasCtx, dataBuf, hue) {
 
         var ldf = yPixh - Math.round(dataBuf[d] * scaler);
         var ldt = yPixh - Math.round(dataBuf[d + 1] * scaler);
-        var rd = yPixh - Math.round(dataBuf[d] * scaler);
 
         canvasCtx.moveTo(i, ldf);
         canvasCtx.lineTo(i + 1, ldt);
@@ -243,11 +240,8 @@ var peakVolScope = .001;
 function DisplayOscilloscope(timeDomainConfig) {
 
     var canvasCtx = timeDomainConfig["canvasCtx"];
-    var e = timeDomainConfig["event"];
-
-    // these values are only valid in the scope of the onaudioprocess event
-    var ldata = e.inputBuffer.getChannelData(0);
-    var rdata = e.inputBuffer.getChannelData(1);
+    var ldata = timeDomainConfig["ldata"];
+    var rdata = timeDomainConfig["rdata"];
 
     var dataLength = ldata.length;
     if(dataLength < 32) {
@@ -256,8 +250,8 @@ function DisplayOscilloscope(timeDomainConfig) {
 
     canvasCtx.save();
 
-    canvasCtx.shadowBlur = 40;
-    canvasCtx.lineWidth = 4;
+    canvasCtx.shadowBlur = 30;
+    canvasCtx.lineWidth = 3;
    
     
     canvasCtx.lineJoin = "round";
