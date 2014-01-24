@@ -104,7 +104,7 @@ function CenterControl(canvasCtx){
                 var height = img.height * (width/img.width);
                 var x = this.canvasCtx.canvas.width - width;
                 this.canvasCtx.save();
-                this.canvasCtx.globalAlpha = 0.4;
+                this.canvasCtx.globalAlpha = 0.7;
                 this.canvasCtx.drawImage(img,
                     0,      //sx
                     0,      //sy
