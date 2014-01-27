@@ -26,11 +26,12 @@ Brian Gunnison (bgunnison@gmail.com)
     <script src="../javascript/jquery-1.9.1.js"></script>
     <script src="../javascript/jquery-ui-1.10.3.custom.min.js"></script>
     <script src="../javascript/jquery.knob.js"></script>
+
     <script src="../javascript/spinners.js"></script>
     <script src="../javascript/aud_controller.js"></script>
-
     <script src="../javascript/aud_viz.js"></script>
     <script src="../javascript/aud_manage.js"></script>
+    <script src="../javascript/aud_canvas.js"></script>
 
 </head>
 <body>
@@ -39,10 +40,21 @@ Brian Gunnison (bgunnison@gmail.com)
 
     <div id="center_control_vis" style="position:absolute; left:0em; top:0em; z-index: 10;">
         <input type="text" id="aud_center_control" class="dial" value="500">
-        <div id="center_control_title" style="width:100%; text-align:center; color:#eeeeee">
-            <h1>Gain</h1>
-        </div>
-    </div>
+        <!--
+       <div class="arrow-right"></div>
+       <div class="arrow-left"></div>
+       -->
+       <div id="center_control_title" style="position:absolute; margin-top: 0px; width:100%; text-align:center; color:#a0a0a0">
+           <h1 id="center_control_title_text">Gain 50%</h1>
+       </div>
+   </div>
 
-</body>
-</html>
+   <!--
+  <div id="viz_type_buttons" >
+      <button >Spectrum</button>
+      <button >Lissajous</button>
+      <button >Scope</button>
+  </div>
+  -->
+   </body>
+   </html>

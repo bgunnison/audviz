@@ -11,7 +11,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Author: Brian Gunnison (briang@tekelite.com)
+Author: Brian Gunnison (bgunnison@gmail.com)
 */
 
 /*
@@ -26,8 +26,12 @@ Author: Brian Gunnison (briang@tekelite.com)
 
 var peakMag = 1.0;
 
+function DisplaySpectrum(realTimeInfo) {
 
-function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
+    var analyser =      realTimeInfo.analyser;
+    var canvasCtx =     realTimeInfo.canvasCtx;
+    var sampleRate =    realTimeInfo.sampleRate;
+
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
     analyser.getFloatFrequencyData(freqFloatData);
 
@@ -56,6 +60,8 @@ function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
     if (numBars <= canvasCtx.canvas.width / 8) {
         barWidth = 8;
     }
+
+    canvasCtx.save();
 
     canvasCtx.lineCap = 'round';
 
@@ -92,11 +98,13 @@ function DisplaySpectrum(canvasCtx, analyser, sampleRate) {
         canvasCtx.fillRect(i * barWidth, canvasCtx.canvas.height, barWidth, -bh);
 
     }
+    canvasCtx.restore();
 }
 
+/* not maintained
 var peakVolAnal = 1.0;
 
-function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
+function DisplayLissajous(realTimeInfo) {
     var datal = new Uint8Array(leftAnal.frequencyBinCount);
     leftAnal.getByteTimeDomainData(datal);
     var datar = new Uint8Array(rightAnal.frequencyBinCount);
@@ -143,14 +151,15 @@ function DisplayLissajous(canvasCtx, leftAnal, rightAnal) {
 
     }
 }
+*/
 
 var peakVolScript = .001;
     // pass in object with everything we need
-function DisplayLissajousScript(timeDomainConfig) {
+function DisplayLissajousScript(realTimeInfo) {
 
-    var canvasCtx = timeDomainConfig["canvasCtx"];
-    var ldata = timeDomainConfig["ldata"];
-    var rdata = timeDomainConfig["rdata"];
+    var canvasCtx = realTimeInfo.canvasCtx;
+    var ldata = realTimeInfo.ldata;
+    var rdata = realTimeInfo.rdata;
 
     var xc = canvasCtx.canvas.width/2;
     var yc = canvasCtx.canvas.height/2;
@@ -159,7 +168,8 @@ function DisplayLissajousScript(timeDomainConfig) {
 
     // make the hue follow the beat
     var h = 0.0;
-    var hinc = 1.0/canvasCtx.canvas.height;
+    var hinc = 1.0 / canvasCtx.canvas.height;
+    canvasCtx.save();
 
     for (var i = 0; i < ldata.length; i++) {
 
@@ -193,6 +203,8 @@ function DisplayLissajousScript(timeDomainConfig) {
         canvasCtx.fillRect(x-1, y-1, 1, 1);
 
     }
+
+    canvasCtx.restore();
 }
 
 function DrawScope(canvasCtx, dataBuf, hue) {
@@ -237,11 +249,11 @@ function DrawScope(canvasCtx, dataBuf, hue) {
 
 var peakVolScope = .001;
 // pass in object with everything we need
-function DisplayOscilloscope(timeDomainConfig) {
+function DisplayOscilloscope(realTimeInfo) {
 
-    var canvasCtx = timeDomainConfig["canvasCtx"];
-    var ldata = timeDomainConfig["ldata"];
-    var rdata = timeDomainConfig["rdata"];
+    var canvasCtx = realTimeInfo.canvasCtx;
+    var ldata = realTimeInfo.ldata;
+    var rdata = realTimeInfo.rdata;
 
     var dataLength = ldata.length;
     if(dataLength < 32) {

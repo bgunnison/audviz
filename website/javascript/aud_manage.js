@@ -18,13 +18,18 @@ Author: Brian Gunnison (bgunnison@gmail.com)
 
 // script processor goes out of scope and stops
 var stereo = null;
-function audioCaptureTimeDomain(event) {
-    console.log("audio process event!")
-}
 
-function aud_manage() {
+// created by the canvas, does everything to play audio and capture 
+// realtime info for visualization
+function AudioManager(canvasManager) {
 
-    console.log("Audio Manager")
+    console.log("Audio Manager");
+    // so private functions can get to this
+    var that = this;
+
+    // 
+    var scriptProcessorSize = 1024;
+    var defaultMasterGain = 0.5;
 
     // iOS requires a user to start playing rather than as soon as we can
     var iOS = false;
@@ -34,6 +39,7 @@ function aud_manage() {
         iOS = true;
     }
 
+    // set for test on desktop
     //iOS = true;
 
     var audioContext = null;
@@ -53,107 +59,16 @@ function aud_manage() {
         alert('Web Audio context error');
         return;
     }
+   
+    // public fields
+    this.audioState = "init";
 
-    var canvas = document.getElementById('viz_canvas1');
-    var canvasCtx = canvas.getContext('2d');
-    canvas.width = document.body.clientWidth / 1.4;
-    canvas.style.border = "#D0D0D0 3px solid";
-    canvas.style.boxShadow = "3px 5px 3px #A0A0A0";
-    var canvasBackgroundColor = "#000000";
-
-    function ClearCanvas() {
-        canvasCtx.fillStyle =  canvasBackgroundColor;
-        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+    // represents a realtime clock that goes forever
+    this.currentTime = function () {
+        return audioContext.currentTime;
     }
-
-    ClearCanvas();
-
-    var logMsgs = [];
-
-    canvasLog("Canvas created");
-    //console.log(canvas.width);
-
-    function canvasShowLog() {
-        canvasCtx.font = "10pt Arial Bold";
-        canvasCtx.fillStyle = "#A0A0A0"
-        var yPos = 10;
-        for (var i = 0; i < logMsgs.length; i++)  {
-            canvasCtx.fillText(logMsgs[i],10, yPos);
-            yPos += 11;
-        }
-    }
-
-    function canvasLog(msg) {
-        logMsgs.push(msg);
-        console.log(msg);
-        canvasShowLog();
-    }
-
-    function FatalError(msg) {
-        ClearCanvas();
-        canvasLog(msg);
-        canvasShowLog();
-    }
-
-    // GUI
-    var centerControl = new CenterControl(canvasCtx);
-
-    window.onresize = function() {
-        canvas.width = document.body.clientWidth/1.4;
-        ClearCanvas();
-        centerControl.CenterOnCanvas();
-    };
-
-    var touchstart = 'mousedown';
-    var touchmove = 'mousemove';
-    var touchend = 'mouseup';
-
-    canvas.addEventListener(touchstart, function(e) {
-        function handle(x, y) {
-            // the absolute geometry of an element
-            // use a small patch upper right to activate central control
-            var rect = canvas.getBoundingClientRect();
-            var xc = x - rect.left;
-            var yc = y - rect.top;
-            if (yc < 100 && xc > canvas.width - 50) {
-                centerControl.ToggleVisible();
-            }
-        }
-
-        if(e.changedTouches) {
-            for(var i=0; i < e.changedTouches.length; i++) {
-                var touch = e.changedTouches[i];
-                handle(touch.pageX, touch.pageY, touch);
-            }
-        } else {
-
-            handle(e.pageX, e.pageY);
-
-            switch (audioState) {
-                case "userstartplay":
-                    // unlocks web audio for iOS
-                    PlayStart();
-                    break;
-
-                case "playing":
-                    // ramp down volume
-                    //audioState = "paused";
-                    break;
-
-                case "paused":
-                    // ramp up volume
-                    //audioState = "playing";
-                    break;
-
-                default:
-                    break;
-            }
-         }
-    });
 
     var soundBuffer = null;
-    var playControls = null;
-    var audioState = "init";
     var audioSource = null;
     var spinner = null;
     var playTime = 0;
@@ -161,36 +76,33 @@ function aud_manage() {
     var useAudioStream = !iOS;
     var audioStream = null;
 
-    function PlayStart() {
+    this.PlayStart = function() {
         if (useAudioStream) {
             audioStream.play();
         } else {
             audioSource.start(0, pauseTime);
         }
-        audioState = "playing";
+        that.audioState = "playing";
         playTime = audioContext.currentTime;
-        canvasLog("Play started");
+        canvasManager.canvasLog("Play started");
     }
 
     function AudioUserPlay() {
         if (spinner) {
             StopSpinner(spinner);
             spinner = null;
-            ClearCanvas();
+            canvasManager.clearCanvas();
         }
 
-        playControls = new PlayControls(canvasCtx);
-        playControls.drawPlayButton();
+        canvasManager.canvasLog("Waiting for play");
+        that.audioState = "userstartplay";
 
-        canvasLog("Waiting for play");
-        audioState = "userstartplay";
-
-        canvasShowLog();
+        canvasManager.canvasShowLog();
     }
 
     function AudioConnect() {
         if (audioSource == null) {
-            FatalError("can't connect audio source is null")
+            canvasManager.fatalError("can't connect audio source is null")
             return;
         }
 
@@ -207,34 +119,33 @@ function aud_manage() {
         audioSource.connect(masterGainNode);
         masterGainNode.connect(audioContext.destination);
 
-        canvasLog("Audio connected");
-        audioState = "connected";
+        canvasManager.canvasLog("Audio connected");
+        that.audioState = "connected";
 
         if (spinner) {
             StopSpinner(spinner);
             spinner = null;
-            ClearCanvas();
+            canvasManager.clearCanvas();
         }
 
         if(iOS) {
          // we need user to start
             AudioUserPlay();
         } else {
-            PlayStart();
+            that.PlayStart();
         }
-        canvasLog("Animation started");
-        rafCallback();
+        
     }
 
 
     function AudioBuffer(buffer) {
         if (buffer == null) {
-            FatalError("decoded buffer is null");
+            canvasManager.fatalError("decoded buffer is null");
             return;
         }
 
-        canvasLog("Audio decoded");
-        audioState = "decoded";
+        canvasManager.canvasLog("Audio decoded");
+        that.audioState = "decoded";
 
         audioSource = audioContext.createBufferSource();
         audioSource.buffer = buffer;
@@ -244,18 +155,18 @@ function aud_manage() {
 
     function AudioDecode() {
         if (soundBuffer == null) {
-            canvasLog("sound buffer is null");
+            canvasManager.canvasLog("sound buffer is null");
             return;
         }
 
         audioContext.decodeAudioData(soundBuffer, AudioBuffer,
             function () { alert("error decoding!"); });
 
-        audioState = "decoding";
+        that.audioState = "decoding";
     }
 
     function AudioLoaded(arrayBuffer) {
-        audioState = "loaded";
+        that.audioState = "loaded";
         soundBuffer = arrayBuffer;
         AudioDecode();
     }
@@ -273,41 +184,36 @@ function aud_manage() {
         // We really want to stream the file so we don't have to wait for it all to download
         var url = localStorage.getItem("audToPlay");
         if (!url) {
-            FatalError("No audio URL");
+            canvasManager.fatalError("No audio URL");
         }
 
-        spinner = StartSpinner(canvasCtx, canvasShowLog);
-        audioState = "loading";
+        spinner = StartSpinner(canvasManager.canvasCtx, canvasManager.canvasShowLog);
+        that.audioState = "loading";
         if (useAudioStream) {
 
             audioStream = new Audio(url);
 
             audioStream.addEventListener('loadedmetadata', function(e) {
-                canvasLog("Audio length: " + Math.round(audioStream.duration) + " secs");
+                canvasManager.canvasLog("Audio length: " + Math.round(audioStream.duration) + " secs");
             });
 
             audioStream.addEventListener('canplay', function(e) {
-                canvasLog("Audio can play");
+                canvasManager.canvasLog("Audio can play");
             });
 
             audioStream.addEventListener('canplaythrough', function(e) {
                 audioSource = audioContext.createMediaElementSource(audioStream);
-                canvasLog("Audio stream ready");
-                audioState = "loaded";
+                canvasManager.canvasLog("Audio stream ready");
+                that.audioState = "loaded";
                 AudioConnect();
             });
 
-            audioStream.addEventListener('ended', function() {
-                ClearCanvas();
-                canvasLog("Play end");
-                canvasLog("Peak anim: " + rtData.AnimPeak.toFixed(4));
-                var ave = rtData.AnimTotal / rtData.AnimCount;
-                canvasLog("Ave anim: " + ave.toFixed(4));
-                canvasShowLog();
+            audioStream.addEventListener('ended', function () {
+                canvasManager.playEnded();
             }, false);
 
             audioStream.addEventListener('error', function() {
-                FatalError("Audio error: " + url);
+                canvasManager.fatalError("Audio error: " + url);
             }, false);
 
             audioStream.load(); // needed for play on iOS
@@ -325,7 +231,7 @@ function aud_manage() {
 
             request.onerror = function() {
                 // if there is an error, switch the sound to HTML Audio
-                FatalError("Audio request error");
+                canvasManager.fatalError("Audio request error");
             }
 
             try {
@@ -335,22 +241,39 @@ function aud_manage() {
             }
         }
 
-        canvasLog("Audio request sent");
+        canvasManager.canvasLog("Audio request sent");
     }
 
     function EvtHandlerCentralControlChange(evt) {
-        if (masterGainNode) {
-            var linearGain = evt.masterVolume/1000.0;
-            // human perception in general is logarithmic
-            var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
-            masterGainNode.gain.value = expGain;
+        // The center control is configured to change selected parameters by the user
+        // we get change events here and can control audio config
+        // Also we save config to cookie and restore at page load
+        switch(evt.what) {
+            case "masterGain":
+                if (masterGainNode) {
+                    var linearGain = evt.value/evt.maxRange;
+                    // human perception in general is logarithmic
+                    var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
+                    masterGainNode.gain.value = expGain;
+                    if (evt.cbTitle) {
+                        evt.cbTitle("Gain: " + Math.round(expGain * 100) + " %");
+                    }
+                }
+                break;
+
+            default:
+                console.log("Center control type: " + evt.type + " not supported");
+                break;
         }
     }
 
     document.addEventListener("evtCentralControlChange", EvtHandlerCentralControlChange, false);
 
-    var scriptProcessorSize = 1024;
-    var defaultMasterGain = 0.5;
+    // a database of all info needed by vizualization
+    this.realTimeInfo = {};
+    this.realTimeInfo.sampleRate = audioContext.sampleRate;
+    this.realTimeInfo.ldata = new Float32Array(scriptProcessorSize);
+    this.realTimeInfo.rdata = new Float32Array(scriptProcessorSize);
 
     var masterGainNode = audioContext.createGainNode();
     masterGainNode.gain.value = defaultMasterGain;
@@ -358,18 +281,14 @@ function aud_manage() {
     var analyser = audioContext.createAnalyser();
     analyser.DefaultSmoothingTimeConstant = 0.3;
     analyser.minDecibels = -110;
-
-    var timeDomainConfig = {};
-    timeDomainConfig.ldata = new Float32Array(scriptProcessorSize);
-    timeDomainConfig.rdata = new Float32Array(scriptProcessorSize);
-
-    timeDomainConfig.canvasCtx = canvasCtx;
+    this.realTimeInfo.analyser = analyser;
+        
     // script processor node needs to go somewhere to process
     var blackHoleGainNode = null;
 
     // see if we can replace two analyzers with the real thing
     var useScriptProcForTimeDomain = 1;
-    timeDomainConfig.useScriptNode = useScriptProcForTimeDomain;
+    
     if (useScriptProcForTimeDomain) {
         // We can see float data of both channels and animate at audio buffer rate
         // adjust buffer size by sample rate in future, 44100 -> 192000
@@ -393,15 +312,13 @@ function aud_manage() {
         stereo = audioContext.createChannelSplitter(2);
         var leftAnal = audioContext.createAnalyser();
         var rightAnal = audioContext.createAnalyser();
-        timeDomainConfig.left = leftAnal;
-        timeDomainConfig.right = rightAnal;
+        this.realTimeInfo.leftAnal = leftAnal;
+        this.realTimeInfo.rightAnal = rightAnal;
         leftAnal.minDecibels = rightAnal.minDecibels = analyser.minDecibels;
     }
-    canvasLog("Audio nodes created");
+    canvasManager.canvasLog("Audio nodes created");
 
-    var toType = function(obj) {
-        return ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
-    }
+   
 
     function audioCaptureTimeDomain(event) {
         // these values are only valid in the scope of the onaudioprocess event
@@ -411,80 +328,13 @@ function aud_manage() {
         // have to copy here as the buffers are potentially undefined outside this event
         // be nice to use splice...
         for (var i = 0; i < scriptProcessorSize; i++) {
-            timeDomainConfig.ldata[i] = ldata[i];
-            timeDomainConfig.rdata[i] = rdata[i];
+            that.realTimeInfo.ldata[i] = ldata[i];
+            that.realTimeInfo.rdata[i] = rdata[i];
         }
-    }
-
-    // gather some real-time data
-    var rtData = {
-        AnimCount:    0,
-        AnimTotal:    0,
-        AnimPeak:     0
-    };
-
-    function rtAnimationMeasure(start) {
-        var dur = audioContext.currentTime - start;
-        if (dur > rtData.AnimPeak) {
-            rtData.AnimPeak = dur;
-        }
-        rtData.AnimCount++;
-        rtData.AnimTotal += dur;
-    }
-
-    function audioCanvasAnimate(event) {
-
-        var rtAnimationStart = audioContext.currentTime;
-
-        ClearCanvas();
-
-        centerControl.Draw();
-
-        if (audioState == "userstartplay") {
-            if (playControls) {
-                playControls.drawPlayButton();
-            }
-            canvasShowLog();
-            return;
-        }
-
-
-        if (audioState != 'playing') {
-            canvasShowLog();
-            return;
-        }
-
-        // currently the sample rate is set by the audio card, it can be really high 192,000 for example
-        DisplaySpectrum(canvasCtx, analyser, audioContext.sampleRate);
-
-        DisplayLissajousScript(timeDomainConfig);
-
-        DisplayOscilloscope(timeDomainConfig);
-
-        canvasShowLog();
-
-        rtAnimationMeasure(rtAnimationStart);
-
-    }
-
-
-    // runs at animate rate
-    function rafCallback(time) {
-        window.webkitRequestAnimationFrame(rafCallback, canvas);
-
-        audioCanvasAnimate(time);
     }
 
     // start ball rolling
     AudioLoad();
 }
 
-function onLoad(e) {
-    // Note: the audio graph must be connected after the page is loaded.
-    // Otherwise, the Audio tag just plays normally and ignores the audio
-    // context. More info: crbug.com/112368
-    console.log("Page Loaded");
-    aud_manage();
-}
 
-window.addEventListener('load', onLoad, false);
