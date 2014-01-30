@@ -33,7 +33,7 @@ function AudioCanvas() {
     var canvasBackgroundColor = "#000000";
 
     this.clearCanvas = function () {
-        canvasCtx.fillStyle =  canvasBackgroundColor;
+        canvasCtx.fillStyle = canvasBackgroundColor;
         canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
@@ -99,8 +99,8 @@ function AudioCanvas() {
             }
         }
 
-        if(e.changedTouches) {
-            for(var i=0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches) {
+            for (var i = 0; i < e.changedTouches.length; i++) {
                 var touch = e.changedTouches[i];
                 handle(touch.pageX, touch.pageY, touch);
             }
@@ -130,6 +130,54 @@ function AudioCanvas() {
          }
     });
 
+
+    var vizTypes = [
+        ["Spectrum",        displaySpectrum],
+        ["Lissajous",       displayLissajousScript],
+        ["Oscilloscope",    displayOscilloscope]
+    ]
+    var currentVizType = vizTypes[0];
+
+    function changeVizTypeValue(evt) {
+        if (evt.value < vizTypes.length) {
+            currentVizType = vizTypes[evt.value];
+            if (evt.cbTitle) {
+                evt.cbTitle(currentVizType[0]);
+            }
+        }
+    }
+
+    function changeVizType(evt) {
+        if (evt.cbTitle) {
+            evt.cbTitle(currentVizType[0]);
+        }
+        if (evt.cbMaxRange) {
+            evt.cbMaxRange(vizTypes.length);
+        }
+    }
+
+    var centralControlHooks = {
+        "typeChange": {
+            "vizType": changeVizType
+        },
+        "valueChange": {
+            "vizType": changeVizTypeValue
+        }
+    }
+
+    function EvtCanvasHandlerCentralControlChange(evt) {
+        // The center control is configured to change selected parameters by the user
+        // we get change events here and can control audio config
+        // Also we (will) save config to cookie and restore at page load
+
+        try {
+            centralControlHooks[evt.what][evt.controlType](evt);
+        } catch(err) {
+            //console.log("control not supported: " + err.message);
+        }
+    }
+
+    document.addEventListener("evtCentralControlChange", EvtCanvasHandlerCentralControlChange, false);
 
     var audioManager = new AudioManager(this);
     audioManager.realTimeInfo.canvasCtx = canvasCtx;
@@ -179,23 +227,16 @@ function AudioCanvas() {
             return;
         }
 
-
         if (audioManager.audioState != 'playing') {
             that.canvasShowLog();
             return;
         }
 
-        // currently the sample rate is set by the audio card, it can be really high 192,000 for example
-        DisplaySpectrum(audioManager.realTimeInfo);
-
-        DisplayLissajousScript(audioManager.realTimeInfo);
-
-        DisplayOscilloscope(audioManager.realTimeInfo);
+        currentVizType[1](audioManager.realTimeInfo);
 
         that.canvasShowLog();
 
         rtAnimationMeasure(rtAnimationStart);
-
     }
 
 

@@ -30,6 +30,9 @@ function AudioManager(canvasManager) {
     // 
     var scriptProcessorSize = 1024;
     var defaultMasterGain = 0.5;
+    // used via central control to set gain
+    // big enough so no zipper noise
+    var masterGainMaxRange = 1000;
 
     // iOS requires a user to start playing rather than as soon as we can
     var iOS = false;
@@ -160,7 +163,9 @@ function AudioManager(canvasManager) {
         }
 
         audioContext.decodeAudioData(soundBuffer, AudioBuffer,
-            function () { alert("error decoding!"); });
+            function () {
+                alert("error decoding!");
+            });
 
         that.audioState = "decoding";
     }
@@ -221,7 +226,7 @@ function AudioManager(canvasManager) {
         } else {
 
             var request = new XMLHttpRequest();
-            request.onprogress=updateAudFileDownloadProgress;
+            request.onprogress = updateAudFileDownloadProgress;
 
             request.open('GET', url, true);
             request.responseType = 'arraybuffer';
@@ -244,32 +249,57 @@ function AudioManager(canvasManager) {
         canvasManager.canvasLog("Audio request sent");
     }
 
-    function EvtHandlerCentralControlChange(evt) {
-        // The center control is configured to change selected parameters by the user
-        // we get change events here and can control audio config
-        // Also we save config to cookie and restore at page load
-        switch(evt.what) {
-            case "masterGain":
-                if (masterGainNode) {
-                    var linearGain = evt.value/evt.maxRange;
-                    // human perception in general is logarithmic
-                    var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
-                    masterGainNode.gain.value = expGain;
-                    if (evt.cbTitle) {
-                        evt.cbTitle("Gain: " + Math.round(expGain * 100) + " %");
-                    }
-                }
-                break;
 
-            default:
-                console.log("Center control type: " + evt.type + " not supported");
-                break;
+    function changeMasterGainValue(evt) {
+        if (masterGainNode) {
+            var linearGain = evt.value/evt.maxRange;
+            // human perception in general is logarithmic
+            var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
+            masterGainNode.gain.value = expGain;
+            if (evt.cbTitle) {
+                evt.cbTitle("Gain: " + Math.round(expGain * 100) + " %");
+            }
         }
     }
 
-    document.addEventListener("evtCentralControlChange", EvtHandlerCentralControlChange, false);
 
-    // a database of all info needed by vizualization
+    function changeMasterGainType(evt) {
+        if (evt.cbTitle) {
+            if (masterGainNode) {
+                evt.cbTitle("Gain: " + Math.round(masterGainNode.gain.value * 100) + " %");
+            } else {
+                evt.cbTitle("Not Used");
+            }
+        }
+        if (evt.cbMaxRange) {
+            evt.cbMaxRange(masterGainMaxRange);
+        }
+    }
+
+    var centralControlHooks = {
+        "typeChange": {
+            "masterGain": changeMasterGainType
+        },
+        "valueChange": {
+            "masterGain": changeMasterGainValue
+        }
+    }
+
+    function EvtAudioHandlerCentralControlChange(evt) {
+        // The center control is configured to change selected parameters by the user
+        // we get change events here and can control audio config
+        // Also we (will) save config to cookie and restore at page load
+
+        try {
+            centralControlHooks[evt.what][evt.controlType](evt);
+        } catch(err) {
+            //console.log("control not supported: " + err.message);
+        }
+    }
+
+    document.addEventListener("evtCentralControlChange", EvtAudioHandlerCentralControlChange, false);
+
+    // a database of all info needed by visualization
     this.realTimeInfo = {};
     this.realTimeInfo.sampleRate = audioContext.sampleRate;
     this.realTimeInfo.ldata = new Float32Array(scriptProcessorSize);

@@ -2,13 +2,11 @@
 /**
  * Downward compatible, touchable dial
  *
- * Version: 1.2.0 (15/07/2012)
+ * Version: 1.2.5 (23/01/2014)
  * Requires: jQuery v1.7+
  *
  * Copyright (c) 2012 Anthony Terrien
- * Under MIT and GPL licenses:
- *  http://www.opensource.org/licenses/mit-license.php
- *  http://www.gnu.org/licenses/gpl.html
+ * Under MIT License (http://www.opensource.org/licenses/mit-license.php)
  *
  * Thanks to vor, eskimoblood, spiffistan, FabrizioC
  */
@@ -77,7 +75,7 @@
                 for (k in conf) {
                     s.o[k] = conf[k];
                 }
-                s.init();
+                s._carve().init();
                 s._configure()
                  ._draw();
             };
@@ -89,20 +87,18 @@
             this.o = $.extend(
                 {
                     // Config
-                    min : this.$.data('min') || 0,
-                    max : this.$.data('max') || 100,
+                    min : this.$.data('min') !== undefined ? this.$.data('min') : 0,
+                    max : this.$.data('max') !== undefined ? this.$.data('max') : 100,
                     stopper : true,
-                    readOnly : this.$.data('readonly') || (this.$.attr('readonly') == 'readonly'),
+                    readOnly : this.$.data('readonly') || (this.$.attr('readonly') === 'readonly'),
 
                     // UI
-                    cursor : (this.$.data('cursor') === true && 30)
-                                || this.$.data('cursor')
-                                || 0,
+                    cursor : (this.$.data('cursor') === true && 30) ||
+                                this.$.data('cursor') || 0,
                     thickness : (
-                                this.$.data('thickness')
-                                && Math.max(Math.min(this.$.data('thickness'), 1), 0.01)
-                                )
-                                || 0.35,
+                                    this.$.data('thickness') &&
+                                    Math.max(Math.min(this.$.data('thickness'), 1), 0.01)
+                                ) || 0.35,
                     lineCap : this.$.data('linecap') || 'butt',
                     width : this.$.data('width') || 200,
                     height : this.$.data('height') || 200,
@@ -119,8 +115,7 @@
                     draw : null, // function () {}
                     change : null, // function (value) {}
                     cancel : null, // function () {}
-                    release : null, // function (value) {}
-                    error : null // function () {}
+                    release : null // function (value) {}
                 }, this.o
             );
 
@@ -134,14 +129,14 @@
 
                 // fieldset = array of integer
                 this.v = {};
-                this.i = this.$.find('input')
+                this.i = this.$.find('input');
                 this.i.each(function(k) {
                     var $this = $(this);
                     s.i[k] = $this;
                     s.v[k] = $this.val();
 
                     $this.bind(
-                        'change'
+                        'change blur'
                         , function () {
                             var val = {};
                             val[k] = $this.val();
@@ -156,10 +151,10 @@
                 // input = integer
                 this.i = this.$;
                 this.v = this.$.val();
-                (this.v == '') && (this.v = this.o.min);
+                (this.v === '') && (this.v = this.o.min);
 
                 this.$.bind(
-                    'change'
+                    'change blur'
                     , function () {
                         s.val(s._validate(s.$.val()));
                     }
@@ -170,14 +165,33 @@
             (!this.o.displayInput) && this.$.hide();
 
             // adds needed DOM elements (canvas, div)
-            this.$c = $(document.createElement('canvas'));
+            this.$c = $(document.createElement('canvas')).attr({
+                width: this.o.width,
+                height: this.o.height
+            });
+
+            // wraps all elements in a div
+            // add to DOM before Canvas init is triggered
+            this.$div = $('<div style="'
+                + (this.o.inline ? 'display:inline;' : '')
+                + 'width:' + this.o.width + 'px;height:' + this.o.height + 'px;'
+                + '"></div>');
+
+            this.$.wrap(this.$div).before(this.$c);
+            this.$div = this.$.parent();
+
             if (typeof G_vmlCanvasManager !== 'undefined') {
               G_vmlCanvasManager.initElement(this.$c[0]);
             }
+
             this.c = this.$c[0].getContext ? this.$c[0].getContext('2d') : null;
+
             if (!this.c) {
-                this.o.error && this.o.error();
-                return;
+                throw {
+                    name:        "CanvasNotSupportedException",
+                    message:     "Canvas not supported. Please use excanvas on IE8.0.",
+                    toString:    function(){return this.name + ": " + this.message}
+                }
             }
 
             // hdpi support
@@ -191,20 +205,11 @@
                         );
 
             // detects relative width / height
-            this.relativeWidth = ((this.o.width % 1 !== 0)
-                                    && this.o.width.indexOf('%'));
-            this.relativeHeight = ((this.o.height % 1 !== 0)
-                                    && this.o.height.indexOf('%'));
-
+            this.relativeWidth = ((this.o.width % 1 !== 0) &&
+                this.o.width.indexOf('%'));
+            this.relativeHeight = ((this.o.height % 1 !== 0) &&
+                this.o.height.indexOf('%'));
             this.relative = (this.relativeWidth || this.relativeHeight);
-
-            // wraps all elements in a div
-            this.$div = $('<div style="'
-                        + (this.o.inline ? 'display:inline;' : '')
-                        + '"></div>');
-
-            this.$.wrap(this.$div).before(this.$c);
-            this.$div = this.$.parent();
 
             // computes size and carves the component
             this._carve();
@@ -239,14 +244,14 @@
 
         this._carve = function() {
             if(this.relative) {
-                var w = this.relativeWidth
-                            ? this.$div.parent().width()
-                                * parseInt(this.o.width) / 100
-                            : this.$div.parent().width(),
-                    h = this.relativeHeight
-                            ? this.$div.parent().height()
-                                * parseInt(this.o.height) / 100
-                            : this.$div.parent().height();
+                var w = this.relativeWidth ?
+                            this.$div.parent().width() *
+                            parseInt(this.o.width) / 100 :
+                            this.$div.parent().width(),
+                    h = this.relativeHeight ?
+                            this.$div.parent().height() *
+                            parseInt(this.o.height) / 100 :
+                            this.$div.parent().height();
 
                 // apply relative
                 this.w = this.h = Math.min(w, h);
@@ -305,11 +310,7 @@
 
                 if (v == s.cv) return;
 
-                if (
-                    s.cH
-                    && (s.cH(v) === false)
-                ) return;
-
+                if (s.cH && (s.cH(v) === false)) return;
 
                 s.change(s._validate(v));
                 s._draw();
@@ -328,12 +329,6 @@
                     "touchend.k"
                     , function () {
                         k.c.d.unbind('touchmove.k touchend.k');
-
-                        if (
-                            s.rH
-                            && (s.rH(s.cv) === false)
-                        ) return;
-
                         s.val(s.cv);
                     }
                 );
@@ -345,12 +340,10 @@
 
             var mouseMove = function (e) {
                 var v = s.xy2val(e.pageX, e.pageY);
+
                 if (v == s.cv) return;
 
-                if (
-                    s.cH
-                    && (s.cH(v) === false)
-                ) return;
+                if (s.cH && (s.cH(v) === false)) return;
 
                 s.change(s._validate(v));
                 s._draw();
@@ -382,12 +375,6 @@
                     "mouseup.k"
                     , function (e) {
                         k.c.d.unbind('mousemove.k mouseup.k keyup.k');
-
-                        if (
-                            s.rH
-                            && (s.rH(s.cv) === false)
-                        ) return;
-
                         s.val(s.cv);
                     }
                 );
@@ -514,8 +501,14 @@
             );
         };
 
-        this.val = function (v) {
+        this.val = function (v, triggerRelease) {
             if (null != v) {
+
+                if (
+                    triggerRelease !== false && (v != this.v) && this.rH &&
+                        (this.rH(v) === false)
+                ) return;
+
                 this.cv = this.o.stopper ? max(min(v, this.o.max), this.o.min) : v;
                 this.v = this.cv;
                 this.$.val(this.v);
@@ -543,29 +536,44 @@
             ret = ~~ (0.5 + (a * (this.o.max - this.o.min) / this.angleArc))
                     + this.o.min;
 
-            this.o.stopper
-            && (ret = max(min(ret, this.o.max), this.o.min));
+            this.o.stopper && (ret = max(min(ret, this.o.max), this.o.min));
 
             return ret;
         };
 
         this.listen = function () {
             // bind MouseWheel
-            var s = this,
+            var s = this, mwTimerStop, mwTimerRelease,
                 mw = function (e) {
-                            e.preventDefault();
-                            var ori = e.originalEvent
-                                ,deltaX = ori.detail || ori.wheelDeltaX
-                                ,deltaY = ori.detail || ori.wheelDeltaY
-                                ,v = parseInt(s.$.val()) + (deltaX>0 || deltaY>0 ? s.o.step : deltaX<0 || deltaY<0 ? -s.o.step : 0);
+                    e.preventDefault();
 
-                            if (
-                                s.cH
-                                && (s.cH(v) === false)
-                            ) return;
+                    var ori = e.originalEvent
+                        ,deltaX = ori.detail || ori.wheelDeltaX
+                        ,deltaY = ori.detail || ori.wheelDeltaY
+                        ,v = s._validate(s.$.val())
+                            + (deltaX>0 || deltaY>0 ? s.o.step : deltaX<0 || deltaY<0 ? -s.o.step : 0);
 
-                            s.val(v);
+                    v = max(min(v, s.o.max), s.o.min);
+
+                    s.val(v, false);
+
+                    if(s.rH) {
+                        // Handle mousewheel stop
+                        clearTimeout(mwTimerStop);
+                        mwTimerStop = setTimeout(function() {
+                            s.rH(v);
+                            mwTimerStop = null;
+                        }, 100);
+
+                        // Handle mousewheel releases
+                        if(!mwTimerRelease) {
+                            mwTimerRelease = setTimeout(function() {
+                                if(mwTimerStop) s.rH(v);
+                                mwTimerRelease = null;
+                            }, 200);
                         }
+                    }
+                }
                 , kval, to, m = 1, kv = {37:-s.o.step, 38:s.o.step, 39:s.o.step, 40:-s.o.step};
 
             this.$
@@ -587,24 +595,22 @@
                             && (kc !== 8)       // bs
                             && (kc !== 9)       // tab
                             && (kc !== 189)     // -
+                            && (kc !== 190 || s.$.val().match(/\./))     // . only allowed once
                             && e.preventDefault();
 
                             // arrows
                             if ($.inArray(kc,[37,38,39,40]) > -1) {
                                 e.preventDefault();
 
-                                var v = parseInt(s.$.val()) + kv[kc] * m;
-
-                                s.o.stopper
-                                && (v = max(min(v, s.o.max), s.o.min));
+                                var v = parseFloat(s.$.val()) + kv[kc] * m;
+                                s.o.stopper && (v = max(min(v, s.o.max), s.o.min));
 
                                 s.change(v);
                                 s._draw();
 
                                 // long time keydown speed-up
                                 to = window.setTimeout(
-                                    function () { m*=2; }
-                                    ,30
+                                    function () { m *= 2; }, 30
                                 );
                             }
                         }
@@ -718,7 +724,7 @@
 
             c.beginPath();
                 c.strokeStyle = this.o.bgColor;
-                c.arc(this.xy, this.xy, this.radius, this.endAngle, this.startAngle, true);
+                c.arc(this.xy, this.xy, this.radius, this.endAngle - 0.00001, this.startAngle + 0.00001, true);
             c.stroke();
 
             if (this.o.displayPrevious) {
@@ -730,14 +736,14 @@
 
                 c.beginPath();
                     c.strokeStyle = this.pColor;
-                    c.arc(this.xy, this.xy, this.radius, sa, ea, false);
+                    c.arc(this.xy, this.xy, this.radius, sa - 0.00001, ea + 0.00001, false);
                 c.stroke();
                 r = (this.cv == this.v);
             }
 
             c.beginPath();
                 c.strokeStyle = r ? this.o.fgColor : this.fgColor ;
-                c.arc(this.xy, this.xy, this.radius, sat, eat, false);
+                c.arc(this.xy, this.xy, this.radius, sat - 0.00001, eat + 0.00001, false);
             c.stroke();
         };
 

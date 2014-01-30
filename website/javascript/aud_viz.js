@@ -26,7 +26,7 @@ Author: Brian Gunnison (bgunnison@gmail.com)
 
 var peakMag = 1.0;
 
-function DisplaySpectrum(realTimeInfo) {
+function displaySpectrum(realTimeInfo) {
 
     var analyser =      realTimeInfo.analyser;
     var canvasCtx =     realTimeInfo.canvasCtx;
@@ -104,7 +104,7 @@ function DisplaySpectrum(realTimeInfo) {
 /* not maintained
 var peakVolAnal = 1.0;
 
-function DisplayLissajous(realTimeInfo) {
+function displayLissajous(realTimeInfo) {
     var datal = new Uint8Array(leftAnal.frequencyBinCount);
     leftAnal.getByteTimeDomainData(datal);
     var datar = new Uint8Array(rightAnal.frequencyBinCount);
@@ -155,7 +155,7 @@ function DisplayLissajous(realTimeInfo) {
 
 var peakVolScript = .001;
     // pass in object with everything we need
-function DisplayLissajousScript(realTimeInfo) {
+function displayLissajousScript(realTimeInfo) {
 
     var canvasCtx = realTimeInfo.canvasCtx;
     var ldata = realTimeInfo.ldata;
@@ -207,7 +207,7 @@ function DisplayLissajousScript(realTimeInfo) {
     canvasCtx.restore();
 }
 
-function DrawScope(canvasCtx, dataBuf, hue) {
+function drawScope(canvasCtx, dataBuf, hue) {
     var xPix = canvasCtx.canvas.width;
     var yPixh = canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
@@ -249,7 +249,7 @@ function DrawScope(canvasCtx, dataBuf, hue) {
 
 var peakVolScope = .001;
 // pass in object with everything we need
-function DisplayOscilloscope(realTimeInfo) {
+function displayOscilloscope(realTimeInfo) {
 
     var canvasCtx = realTimeInfo.canvasCtx;
     var ldata = realTimeInfo.ldata;
@@ -261,15 +261,12 @@ function DisplayOscilloscope(realTimeInfo) {
     }
 
     canvasCtx.save();
-
     canvasCtx.shadowBlur = 30;
     canvasCtx.lineWidth = 3;
-   
-    
     canvasCtx.lineJoin = "round";
     //canvasCtx.strokeStyle = gradient;
-    DrawScope(canvasCtx, ldata, 200);
-    DrawScope(canvasCtx, rdata, 100);
+    drawScope(canvasCtx, ldata, 200);
+    drawScope(canvasCtx, rdata, 100);
 
     canvasCtx.restore();
 }

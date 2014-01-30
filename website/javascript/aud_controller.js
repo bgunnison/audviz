@@ -19,23 +19,29 @@
 
 // a database of center control config
 // used by app to hook to gui and manage gui layout
-var center_control_config = {
+var centerControlConfig = {
     div_id:             "center_control_vis",
     title_id:           "center_control_title_text",
+    larrow_div:         "larrow",
+    rarrow_div:         "rarrow",
     change_event:       "evtCentralControlChange",
     visibility:         "hidden",    // we start hidden
     height:             300,
     width:              300,
     max_range:          1000,
     fgColor:            'blue',
-    defaultValue:       500
+    defaultValue:       500,
+    whatType:           ["masterGain", "vizType"],
+    currentWhatType:    0
 };
 
-function CenterControl(canvasCtx){
+
+function CenterControl(canvasCtx) {
 
     this.canvasCtx = canvasCtx;
-    this.element = document.getElementById(center_control_config.div_id);
+    this.element = document.getElementById(centerControlConfig.div_id);
     this.visible = false;
+    var evtck = document.createEvent("Event");
 
     function Init(element) {
         // init gui visibility
@@ -45,26 +51,29 @@ function CenterControl(canvasCtx){
         // where the user selects what it configures and it then sends change events
         // to audio manager. Audio manager configures audio based on change type
         // and manages persistence
-        var evtck = document.createEvent("Event");
-        evtck.initEvent(center_control_config.change_event, true, true);
 
-        function CentralControlChange(value) {
+        evtck.initEvent(centerControlConfig.change_event, true, true);
+
+        // event constants
+
+
+        function centralControlChangeValue(value) {
             //console.log("change : " + value);
-            evtck.cbTitle = CenterControlTitle;
-            evtck.what = "masterGain";
-            evtck.maxRange = center_control_config.max_range;
+            evtck.whatType = centerControlConfig.whatType[centerControlConfig.currentWhatType];
+            evtck.what = "valueChange";
+            evtck.maxRange = centerControlConfig.maxRange;
             evtck.value = value;
             document.dispatchEvent(evtck);
         }
 
         var myKnob = $(".dial").knob({
-            'value':        center_control_config.defaultValue,
+            'value':        centerControlConfig.defaultValue,
             'min':          0,
-            'max':          center_control_config.max_range,
+            'max':          centerControlConfig.max_range,
             'readOnly':     false,
-            'width':        center_control_config.width,
-            'height':       center_control_config.height,
-            'fgColor':      center_control_config.fgColor,
+            'width':        centerControlConfig.width,
+            'height':       centerControlConfig.height,
+            'fgColor':      centerControlConfig.fgColor,
             'dynamicDraw':  true,
             'thickness':    0.35,
             'skin':         'tron',
@@ -72,7 +81,7 @@ function CenterControl(canvasCtx){
             'displayInput': false,
             'angleOffset':  -145,
             'angleArc':     290,
-            change:         CentralControlChange
+            change:         centralControlChangeValue
         });
 
         // some day I'll figure out how to bind to the change event in the knob
@@ -80,30 +89,79 @@ function CenterControl(canvasCtx){
 
     }
 
-    function CenterControlTitle(title) {
-        $("#" + center_control_config.title_id).text(title);
+    function centerControlTitle(title) {
+        $("#" + centerControlConfig.title_id).text(title);
+    }
+    evtck.cbTitle = centerControlTitle;
+
+    function centerControlMaxRange(max) {
+
+        centerControlConfig.maxRange = max;
+        $('.dial').trigger('configure', {
+            "max": max
+            //"fgColor":"#FF0000",
+            //"skin":"tron",
+            //"cursor":true
+        })
     }
 
-     function LoadImage(imageURL, images) {
+    evtck.cbMaxRange = centerControlMaxRange;
+
+    function LoadImage(imageURL, images) {
         var imageObj = new Image();
         imageObj.onload = function() {
             images.push(this);
         };
 
         imageObj.src = imageURL;
-     }
+    }
 
     var touchPanelImages = [];
     function TouchPanelInit() {
         LoadImage("../art/fporig.png",touchPanelImages)
     }
 
+    function centralControlChangeWhat(ctype) {
+        evtck.what = "typeChange";
+        evtck.controlType = ctype;
+        document.dispatchEvent(evtck);
+    }
+
+    function rightArrowClick() {
+        //console.log("r arrow");
+        centerControlConfig.currentWhatType++;
+        if (centerControlConfig.currentWhatType >= centerControlConfig.whatType.length) {
+            centerControlConfig.currentWhatType = 0;
+        }
+        centralControlChangeWhat(centerControlConfig.whatType[centerControlConfig.currentWhatType]);
+    }
+
+    function leftArrowClick() {
+        //console.log("l arrow");
+        centerControlConfig.currentWhatType--;
+        if (centerControlConfig.currentWhatType < 0) {
+            centerControlConfig.currentWhatType = centerControlConfig.whatType.length - 1;
+        }
+        centralControlChangeWhat(centerControlConfig.whatType[centerControlConfig.currentWhatType]);
+    }
 
     this.CenterOnCanvas = function () {
-        var lPos = (this.canvasCtx.canvas.offsetLeft + this.canvasCtx.canvas.width / 2) - this.element.offsetWidth / 2 + "px";
+        var ew = this.element.offsetWidth;
+        var lPos = (this.canvasCtx.canvas.offsetLeft + this.canvasCtx.canvas.width / 2) - ew / 2 + "px";
         this.element.style.marginLeft = lPos;
         var tPos = (this.canvasCtx.canvas.offsetTop + this.canvasCtx.canvas.height / 2) - this.element.offsetHeight / 2 + "px";
         this.element.style.marginTop = tPos;
+
+        // Arrows initial position is top left of central control
+        var ra = document.getElementById(centerControlConfig.rarrow_div);
+        var la = document.getElementById(centerControlConfig.larrow_div);
+        ra.style.marginTop = tPos;
+        la.style.marginTop = tPos;
+       
+        la.style.marginLeft = (la.style.marginLeft - 80) + "px";
+        ra.style.marginLeft = (ew + 20) + "px";
+        ra.onclick = rightArrowClick;
+        la.onclick = leftArrowClick;
     }
 
     this.draw = function() {
@@ -135,8 +193,9 @@ function CenterControl(canvasCtx){
     }
 
 
-    this.Visible = function() {
-        //this.element.style.visibility = 'visible';
+    this.Visible = function () {
+        // the style is hidden so it does not flash at load
+        this.element.style.visibility = 'visible';
         $(this.element).fadeIn("slow","swing");
         this.visible = true;
         this.CenterOnCanvas();
@@ -161,7 +220,6 @@ function CenterControl(canvasCtx){
     this.Hidden();
     this.CenterOnCanvas();
     TouchPanelInit();
-    //$('.dial').val(500).trigger('change');
 
 }
 
@@ -259,3 +317,5 @@ function PlayControls(ctx) {
         this.ctx.restore();
     }
 }
+
+
