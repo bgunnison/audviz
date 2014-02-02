@@ -22,20 +22,32 @@ var bkgnd_effect = function() {
     var ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    canvas.style.border = "#D0D0D0 3px solid";
+    canvas.style.boxShadow = "3px 5px 3px #A0A0A0";
     var particles = [];
     var patriclesNum = 100;
     var w = canvas.width;
     var h = canvas.height;
     var colors = ['#4b3b52','#25242d','#695b53','#686564','#574d5a'];
 
-    window.onresize = function() {
+    function screenResize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         particles = [];
         w = canvas.width;
         h = canvas.height;
         init();
-    };
+    }
+
+    // bug does not work...
+    function screenScrolled() {
+        canvas.offsetLeft = window.pageXOffset;
+        canvas.offsetTop = window.pageYOffset;
+        screenResize();
+    }
+
+    window.onresize = screenResize;
+    window.onscroll = screenScrolled;
 
     function findDistance(p1, p2){
         return Math.sqrt( Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2) );

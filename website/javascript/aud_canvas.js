@@ -71,8 +71,6 @@ function AudioCanvas() {
         this.canvasShowLog();
     }
 
-    // GUI
-    var centerControl = new CenterControl(canvasCtx);
 
     window.onresize = function () {
         var width = document.body.clientWidth / canvasWidthProportion;
@@ -80,7 +78,7 @@ function AudioCanvas() {
             canvas.width = width;
         }
         that.clearCanvas();
-        centerControl.CenterOnCanvas();
+        that.centerControl.centerOnCanvas();
     };
 
     var touchstart = 'mousedown';
@@ -90,13 +88,16 @@ function AudioCanvas() {
     canvas.addEventListener(touchstart, function(e) {
         function handle(x, y) {
             // the absolute geometry of an element
-            // use a small patch upper right to activate central control
+            // user touches canvas to activate central control
             var rect = canvas.getBoundingClientRect();
             var xc = x - rect.left;
             var yc = y - rect.top;
-            if (yc < 100 && xc > canvas.width - 50) {
-                centerControl.ToggleVisible();
-            }
+            // use upper right corner to activate
+            //if (yc < 100 && xc > canvas.width - 50) {
+            //    that.centerControl.toggleVisible();
+            //}
+            // use entire canvas to activate
+            that.centerControl.toggleVisible();
         }
 
         if (e.changedTouches) {
@@ -111,7 +112,7 @@ function AudioCanvas() {
             switch (audioManager.audioState) {
                 case "userstartplay":
                     // unlocks web audio for iOS
-                   audioManager.PlayStart();
+                   audioManager.playStart();
                    break;
 
                 case "playing":
@@ -130,54 +131,22 @@ function AudioCanvas() {
          }
     });
 
+    // GUI
+    this.centerControl = new CenterControl(canvasCtx);
+    var currentVizMethod = displaySpectrum;
 
-    var vizTypes = [
-        ["Spectrum",        displaySpectrum],
-        ["Lissajous",       displayLissajousScript],
-        ["Oscilloscope",    displayOscilloscope]
-    ]
-    var currentVizType = vizTypes[0];
+    this.centerControl.addClient("Spectrum", 0, 0, null, function(client) {
+        currentVizMethod = displaySpectrum;
+    });
 
-    function changeVizTypeValue(evt) {
-        if (evt.value < vizTypes.length) {
-            currentVizType = vizTypes[evt.value];
-            if (evt.cbTitle) {
-                evt.cbTitle(currentVizType[0]);
-            }
-        }
-    }
 
-    function changeVizType(evt) {
-        if (evt.cbTitle) {
-            evt.cbTitle(currentVizType[0]);
-        }
-        if (evt.cbMaxRange) {
-            evt.cbMaxRange(vizTypes.length);
-        }
-    }
+    this.centerControl.addClient("Lissajous", 0, 0, null,  function(client) {
+        currentVizMethod = displayLissajousScript;
+    });
 
-    var centralControlHooks = {
-        "typeChange": {
-            "vizType": changeVizType
-        },
-        "valueChange": {
-            "vizType": changeVizTypeValue
-        }
-    }
-
-    function EvtCanvasHandlerCentralControlChange(evt) {
-        // The center control is configured to change selected parameters by the user
-        // we get change events here and can control audio config
-        // Also we (will) save config to cookie and restore at page load
-
-        try {
-            centralControlHooks[evt.what][evt.controlType](evt);
-        } catch(err) {
-            //console.log("control not supported: " + err.message);
-        }
-    }
-
-    document.addEventListener("evtCentralControlChange", EvtCanvasHandlerCentralControlChange, false);
+    this.centerControl.addClient("Oscilloscope", 0, 0, null,  function(client) {
+        currentVizMethod = displayOscilloscope;
+    });
 
     var audioManager = new AudioManager(this);
     audioManager.realTimeInfo.canvasCtx = canvasCtx;
@@ -217,8 +186,6 @@ function AudioCanvas() {
 
         that.clearCanvas();
 
-        centerControl.draw();
-
         if (audioManager && audioManager.audioState == "userstartplay") {
             if (playControls) {
                 playControls.drawPlayButton();
@@ -232,7 +199,7 @@ function AudioCanvas() {
             return;
         }
 
-        currentVizType[1](audioManager.realTimeInfo);
+        currentVizMethod(audioManager.realTimeInfo);
 
         that.canvasShowLog();
 
@@ -248,7 +215,9 @@ function AudioCanvas() {
     }
 
     // start animation
-    rafCallback();
+    this.startAnimation = function() {
+        rafCallback();
+    }
 }
 
 var audioCanvas = null;

@@ -24,47 +24,25 @@ var centerControlConfig = {
     title_id:           "center_control_title_text",
     larrow_div:         "larrow",
     rarrow_div:         "rarrow",
-    change_event:       "evtCentralControlChange",
     visibility:         "hidden",    // we start hidden
     height:             300,
     width:              300,
     max_range:          1000,
     fgColor:            'blue',
-    defaultValue:       500,
-    whatType:           ["masterGain", "vizType"],
-    currentWhatType:    0
+    defaultValue:       500
 };
 
 
-function CenterControl(canvasCtx) {
 
+function CenterControl(canvasCtx) {
+    var that = this;
     this.canvasCtx = canvasCtx;
     this.element = document.getElementById(centerControlConfig.div_id);
-    this.visible = false;
-    var evtck = document.createEvent("Event");
+    var isVisible = false;
 
     function Init(element) {
         // init gui visibility
         console.log("Control init")
-
-        // center control is a generic change controller
-        // where the user selects what it configures and it then sends change events
-        // to audio manager. Audio manager configures audio based on change type
-        // and manages persistence
-
-        evtck.initEvent(centerControlConfig.change_event, true, true);
-
-        // event constants
-
-
-        function centralControlChangeValue(value) {
-            //console.log("change : " + value);
-            evtck.whatType = centerControlConfig.whatType[centerControlConfig.currentWhatType];
-            evtck.what = "valueChange";
-            evtck.maxRange = centerControlConfig.maxRange;
-            evtck.value = value;
-            document.dispatchEvent(evtck);
-        }
 
         var myKnob = $(".dial").knob({
             'value':        centerControlConfig.defaultValue,
@@ -83,19 +61,60 @@ function CenterControl(canvasCtx) {
             'angleArc':     290,
             change:         centralControlChangeValue
         });
-
-        // some day I'll figure out how to bind to the change event in the knob
-        //$('.dial').on('change', function(v) {console.log("vol: " + v) });
-
     }
 
+
+    // a list of objects that clients can register their own with to get a control
+    var clients = [];
+    var currentClient = 0;
+
+    // clients add their control type to this and get it back when the control changes something
+    this.addClient = function(name, iValue, maxRange, cbValue, cbType) {
+        var  client = {};
+        client.name = name;
+        // add callback to change control title
+        client.cbTitle = centerControlTitle;
+        client.cbValueChange = cbValue;
+        client.cbTypeChange = cbType;
+        client.maxRange = maxRange;
+        client.value = iValue;
+        clients.push(client);
+    }
+
+    // center control is a generic change controller
+    // where the user selects what it configures and change events
+    // call back into clients that have registered for a control
+
+    // user clicked an arrow
+    function centralControlChangedClient(client) {
+        // tell client we changed to it
+        client.cbTypeChange(client);
+        centerControlMaxRangeValue(client.maxRange, client.value);
+        centerControlTitle(client.name);
+        controlTimeout();
+    }
+
+    // user changed value
+    function centralControlChangeValue(value) {
+        // call the value change callback of the current type
+        if (clients.length > 0) {
+            var client = clients[currentClient];
+            client.value = value;
+            if(client.cbValueChange) {
+                client.cbValueChange(client);
+            }
+        }
+        controlTimeout();
+    }
+
+
+    // callback from client to set control title
     function centerControlTitle(title) {
         $("#" + centerControlConfig.title_id).text(title);
     }
-    evtck.cbTitle = centerControlTitle;
 
-    function centerControlMaxRange(max) {
-
+    // sets current control max and value
+    function centerControlMaxRangeValue(max, value) {
         centerControlConfig.maxRange = max;
         $('.dial').trigger('configure', {
             "max": max
@@ -103,49 +122,38 @@ function CenterControl(canvasCtx) {
             //"skin":"tron",
             //"cursor":true
         })
-    }
 
-    evtck.cbMaxRange = centerControlMaxRange;
-
-    function LoadImage(imageURL, images) {
-        var imageObj = new Image();
-        imageObj.onload = function() {
-            images.push(this);
-        };
-
-        imageObj.src = imageURL;
-    }
-
-    var touchPanelImages = [];
-    function TouchPanelInit() {
-        LoadImage("../art/fporig.png",touchPanelImages)
-    }
-
-    function centralControlChangeWhat(ctype) {
-        evtck.what = "typeChange";
-        evtck.controlType = ctype;
-        document.dispatchEvent(evtck);
+        if (value <= max) {
+            $('.dial').val(value).trigger('change');
+        }
     }
 
     function rightArrowClick() {
         //console.log("r arrow");
-        centerControlConfig.currentWhatType++;
-        if (centerControlConfig.currentWhatType >= centerControlConfig.whatType.length) {
-            centerControlConfig.currentWhatType = 0;
+        if (clients.length == 0) {
+            return;
         }
-        centralControlChangeWhat(centerControlConfig.whatType[centerControlConfig.currentWhatType]);
+        currentClient++;
+        if (currentClient >= clients.length) {
+            currentClient = 0;
+        }
+        centralControlChangedClient(clients[currentClient]);
     }
 
     function leftArrowClick() {
         //console.log("l arrow");
-        centerControlConfig.currentWhatType--;
-        if (centerControlConfig.currentWhatType < 0) {
-            centerControlConfig.currentWhatType = centerControlConfig.whatType.length - 1;
+        if (clients.length == 0) {
+            return;
         }
-        centralControlChangeWhat(centerControlConfig.whatType[centerControlConfig.currentWhatType]);
+        currentClient--;
+        if (currentClient < 0) {
+            currentClient = clients.length - 1;
+        }
+        centralControlChangedClient(clients[currentClient]);
     }
 
-    this.CenterOnCanvas = function () {
+
+    this.centerOnCanvas = function () {
         var ew = this.element.offsetWidth;
         var lPos = (this.canvasCtx.canvas.offsetLeft + this.canvasCtx.canvas.width / 2) - ew / 2 + "px";
         this.element.style.marginLeft = lPos;
@@ -164,10 +172,57 @@ function CenterControl(canvasCtx) {
         la.onclick = leftArrowClick;
     }
 
+    var controlTimeoutObj = null;
+
+     function controlTimeout() {
+         clearTimeout(controlTimeoutObj);
+         controlTimeoutObj = setTimeout(makeHidden, 5000);
+     }
+
+     function makeVisible() {
+        // the style is hidden so it does not flash at load
+        that.element.style.visibility = 'visible';
+        $(that.element).fadeIn("slow","swing");
+        isVisible = true;
+         that.centerOnCanvas();
+
+        // hide control after 5 seconds uf no use
+         controlTimeout();
+     }
+
+     function makeHidden() {
+        $(that.element).fadeOut("slow","swing");
+         isVisible = false;
+        //this.element.style.visibility = 'hidden';
+    }
+
+    this.toggleVisible = function() {
+        if (isVisible) {
+            makeHidden();
+        } else {
+            makeVisible();
+        }
+    }
+
+    // displays an image on the canvas
+    function LoadImage(imageURL, images) {
+        var imageObj = new Image();
+        imageObj.onload = function() {
+            images.push(this);
+        };
+
+        imageObj.src = imageURL;
+    }
+
+    var touchPanelImages = [];
+    function TouchPanelInit() {
+        LoadImage("../art/fporig.png",touchPanelImages)
+    }
+
     this.draw = function() {
 
         // keep visible always for now,
-        // implement visible when user touchaes canvas, then have it fade off after no use
+        // implement visible when user touches canvas, then have it fade off after no use
         if (true) {
             var img = touchPanelImages[0];
             if (img) {
@@ -193,33 +248,10 @@ function CenterControl(canvasCtx) {
     }
 
 
-    this.Visible = function () {
-        // the style is hidden so it does not flash at load
-        this.element.style.visibility = 'visible';
-        $(this.element).fadeIn("slow","swing");
-        this.visible = true;
-        this.CenterOnCanvas();
-    }
-
-    this.Hidden = function() {
-        $(this.element).fadeOut("slow","swing");
-        this.visible = false;
-        //this.element.style.visibility = 'hidden';
-    }
-
-    this.ToggleVisible = function() {
-        if (this.visible) {
-            this.Hidden();
-        } else {
-            this.Visible();
-        }
-    }
-
-
     Init();
-    this.Hidden();
-    this.CenterOnCanvas();
-    TouchPanelInit();
+    makeHidden();
+    this.centerOnCanvas();
+    //TouchPanelInit();
 
 }
 

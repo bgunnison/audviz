@@ -101,60 +101,9 @@ function displaySpectrum(realTimeInfo) {
     canvasCtx.restore();
 }
 
-/* not maintained
-var peakVolAnal = 1.0;
-
-function displayLissajous(realTimeInfo) {
-    var datal = new Uint8Array(leftAnal.frequencyBinCount);
-    leftAnal.getByteTimeDomainData(datal);
-    var datar = new Uint8Array(rightAnal.frequencyBinCount);
-    rightAnal.getByteTimeDomainData(datar);
-
-    var xc = canvasCtx.canvas.width/2;
-    var yc = canvasCtx.canvas.height/2;
-
-    var scaler = canvasCtx.canvas.height/(peakVolAnal * 2);
-
-    // maake the hue follow the beat
-    var h = 0.0;
-    var hinc = 1.0/canvasCtx.canvas.height;
-
-    for (var i = 0; i < leftAnal.frequencyBinCount; ++i) {
-
-        var ld = datal[i] - 128;
-        var rd = datar[i] - 128;
-        var fx = (ld * scaler) + xc;
-        var fy = (rd * scaler) + yc;
-
-        if (ld > peakVolAnal) {
-            peakVolAnal = ld;
-            //console.log(peakMag);
-        }
-
-        var x = Math.round(fx);
-        var y = Math.round(fy);
-
-        h = Math.sqrt(rd * rd + ld * ld) / 64.0;
-        var hue = 270 - Math.round(h * 360);
-
-        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 1)';
-        canvasCtx.fillRect(x , y, 1, 1);
-        canvasCtx.fillStyle = 'hsla(' + hue + ', 100%,50%, 0.7)';
-        canvasCtx.fillRect(x+1, y, 1, 1);
-        canvasCtx.fillRect(x-1, y, 1, 1);
-        canvasCtx.fillRect(x,   y+1, 1, 1);
-        canvasCtx.fillRect(x,   y-1, 1, 1);
-        canvasCtx.fillRect(x+1, y+1, 1, 1);
-        canvasCtx.fillRect(x+1, y-1, 1, 1);
-        canvasCtx.fillRect(x-1, y+1, 1, 1);
-        canvasCtx.fillRect(x-1, y-1, 1, 1);
-
-    }
-}
-*/
 
 var peakVolScript = .001;
-    // pass in object with everything we need
+
 function displayLissajousScript(realTimeInfo) {
 
     var canvasCtx = realTimeInfo.canvasCtx;
@@ -207,6 +156,9 @@ function displayLissajousScript(realTimeInfo) {
     canvasCtx.restore();
 }
 
+// We AGC the peak display
+var peakVolScope = .001;
+
 function drawScope(canvasCtx, dataBuf, hue) {
     var xPix = canvasCtx.canvas.width;
     var yPixh = canvasCtx.canvas.height / 2;
@@ -220,24 +172,29 @@ function drawScope(canvasCtx, dataBuf, hue) {
 
     canvasCtx.beginPath();
 
-    if (xPix < dataBuf.Length) {
-        var skip = Math.ceil(xPix / (dataBuf.Length - xPix));
-    }
+    var skip = 0;
+    var skipInc = xPix / dataBuf.length;
+    var ldf = yPixh - Math.round(dataBuf[0] * scaler);
 
-    var d = 0;
+    for (var d = 1; d < dataBuf.length - 2; d++) {
 
-    for (var i = 0; i < xPix - 1; i++) {
+        var ldt = yPixh - Math.round(dataBuf[d] * scaler);
 
-        var ldf = yPixh - Math.round(dataBuf[d] * scaler);
-        var ldt = yPixh - Math.round(dataBuf[d + 1] * scaler);
-
-        canvasCtx.moveTo(i, ldf);
-        canvasCtx.lineTo(i + 1, ldt);
-
-        d += 1;
-        if (d >= dataBuf.Length - 1) {
-            break;
+        var x = Math.round(skip);
+        skip += skipInc;
+        var x1 = Math.round(skip);
+        if (x == x1) {
+            // average the two samples
+            var ave = (ldf + ldt)/2;
+            ldf = ave;
+            ldt = ave;
+            //console.log(x, ldf)
         }
+
+        canvasCtx.moveTo(x, ldf);
+        canvasCtx.lineTo(x1, ldt);
+
+        ldf = ldt;
 
         if (dataBuf[d] > peakVolScope) {
             peakVolScope = dataBuf[d];
@@ -247,16 +204,14 @@ function drawScope(canvasCtx, dataBuf, hue) {
     canvasCtx.stroke();
 }
 
-var peakVolScope = .001;
-// pass in object with everything we need
+
 function displayOscilloscope(realTimeInfo) {
 
     var canvasCtx = realTimeInfo.canvasCtx;
     var ldata = realTimeInfo.ldata;
     var rdata = realTimeInfo.rdata;
 
-    var dataLength = ldata.length;
-    if(dataLength < 32) {
+    if(ldata.length < 32) {
         return;
     }
 
