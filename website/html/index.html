@@ -52,20 +52,24 @@ Brian Gunnison (bgunnison@gmail.com)
               	 <canvas id="bkgnd_canvas1" class="viz_canvas" width="512" height="512"> </canvas>
         </div>
         
-    <div id="aud_select" style="position: absolute; left: 26px; top: 27px; z-index: 10; width: 535px;">
+    <div id="aud_select" style="position: absolute; left: 26px; top: 27px; z-index: 10; width: 848px;">
         <p><img src="../art/Xgunnerlogo0021.png" width="147" height="102" alt="logo"> </p>
         <h1><strong>Select the sound you want to visualize:</strong></h1>
-        <p> <input class="aud_select" value="Candle" onclick="PlayAud('../media/auds/Candle.mp3');" type="button"></p>
+        <p> &nbsp;&nbsp;<input class="aud_select" value="Candle" onclick="PlayAud('../media/auds/Candle.mp3');" type="button">
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; 
+            <input class="aud_select" value="Sweep" onclick="PlayAud('../media/auds/sweep.mp3');" type="button"></p>
         <p>&nbsp; </p>
-        &nbsp;<input class="aud_select" value="Sweep" onclick="PlayAud('../media/auds/sweep.mp3');" type="button">
+        &nbsp;&nbsp;<input class="aud_select" value="OOP" onclick="PlayAud('../media/auds/oop.mp3');" type="button">
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+         <input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button">
         <p>&nbsp; </p>
-        &nbsp;<input class="aud_select" value="OOP" onclick="PlayAud('../media/auds/oop.mp3');" type="button">
-        <p>&nbsp; </p>
-        &nbsp;<input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button">
-        <p>&nbsp; </p>
-        &nbsp;<input class="aud_select" value="White noise" onclick="PlayAud('../media/auds/whitenoise.mp3');" type="button">
-	</div>
+        &nbsp;&nbsp;<input class="aud_select" value="White noise" onclick="PlayAud('../media/auds/whitenoise.mp3');" type="button">
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+        <input class="aud_select" value="Two Five One" onclick="PlayAud('../media/auds/251.mp3');" type="button">&nbsp;&nbsp;&nbsp;
+         <p>&nbsp; </p>
+         &nbsp;&nbsp;<input class="aud_select" value="Microphone" onclick="PlayAud('userStream');" type="button"></div>
     
+        
 </body>
 
 </html>

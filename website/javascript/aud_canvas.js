@@ -131,11 +131,26 @@ function AudioCanvas() {
          }
     });
 
-    // GUI
+
+    // instantiate GUI
+    var playControls = new PlayControls(canvasCtx);
     this.centerControl = new CenterControl(canvasCtx);
+
+    // instantiate audio manager
+    var audioManager = new AudioManager(this);
+    audioManager.realTimeInfo.canvasCtx = canvasCtx;
+    audioManager.realTimeInfo.scopeTriggerLevel = 0;
+
     var currentVizMethod = displaySpectrum;
 
-    this.centerControl.addClient("Spectrum", 0, 0, null, function(client) {
+    // hookup to GUI
+
+    // audio manager owns spectrum noise floor
+    this.centerControl.addClient("Spectrum",
+        audioManager.noiseFloorControlEx.set,
+        audioManager.noiseFloorControlEx.range,
+        audioManager.noiseFloorControlEx.cbValue,
+        function (client) {
         currentVizMethod = displaySpectrum;
     });
 
@@ -148,10 +163,8 @@ function AudioCanvas() {
         currentVizMethod = displayOscilloscope;
     });
 
-    var audioManager = new AudioManager(this);
-    audioManager.realTimeInfo.canvasCtx = canvasCtx;
 
-    // called by audio manager when audio stops
+    // called by audio manager when audio stops (sometimes)
     this.playEnded = function () {
         this.clearCanvas();
         this.canvasLog("Play end");
@@ -160,8 +173,6 @@ function AudioCanvas() {
         this.canvasLog("Ave anim: " + ave.toFixed(4));
         this.canvasShowLog();
     }
-
-    var playControls = new PlayControls(canvasCtx);
 
     // gather some real-time data
     var rtData = {
@@ -199,6 +210,7 @@ function AudioCanvas() {
             return;
         }
 
+        // audio animation
         currentVizMethod(audioManager.realTimeInfo);
 
         that.canvasShowLog();
@@ -210,7 +222,6 @@ function AudioCanvas() {
     // runs at animate rate
     function rafCallback(time) {
         window.webkitRequestAnimationFrame(rafCallback, canvas);
-
         canvasAnimate(time);
     }
 

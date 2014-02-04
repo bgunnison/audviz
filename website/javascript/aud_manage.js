@@ -27,7 +27,8 @@ function AudioManager(canvasManager) {
     // so private functions can get to this
     var that = this;
 
-    var defaultScriptProcessorSize = 1024;
+    var scriptProcessorSizes = [256, 512, 1024, 2048, 4096, 8192, 16384];
+    var defaultScriptProcessorSize = scriptProcessorSizes[2];
     var defaultSmoothingTimeConstant = 0.3;
     var defaultNoiseFloor = -110;
     var noiseFloorMax = -90;
@@ -47,7 +48,7 @@ function AudioManager(canvasManager) {
     }
 
     // set for test on desktop
-    //iOS = true;
+   // iOS = true;
 
     var audioContext = null;
 
@@ -83,16 +84,18 @@ function AudioManager(canvasManager) {
     var audioStream = null;
 
     this.playStart = function() {
-        if (useAudioStream) {
-            audioStream.play();
-        } else {
-            audioGraphInfo.audioSource.start(0, pauseTime);
+        if (audioGraphInfo.microphone == false) {
+            if (useAudioStream) {
+                audioStream.play();
+            } else {
+                audioGraphInfo.audioSource.start(0, pauseTime);
+            }
         }
+
         that.audioState = "playing";
         playTime = audioContext.currentTime;
         canvasManager.canvasLog("Play started");
         canvasManager.startAnimation();
-
     }
 
     function audioUserPlay() {
@@ -102,8 +105,12 @@ function AudioManager(canvasManager) {
             canvasManager.clearCanvas();
         }
 
-        canvasManager.canvasLog("Waiting for play");
-        that.audioState = "userstartplay";
+        if (audioGraphInfo.microphone == false) {
+            canvasManager.canvasLog("Waiting for play");
+            that.audioState = "userstartplay";
+        } else {
+            that.audioState = "playing";
+        }
         canvasManager.startAnimation();
         canvasManager.canvasShowLog();
     }
@@ -128,7 +135,7 @@ function AudioManager(canvasManager) {
         }
 
         if(iOS) {
-         // we need user to start
+            // we need user to start
             audioUserPlay();
         } else {
             that.playStart();
@@ -197,6 +204,56 @@ function AudioManager(canvasManager) {
     audioGraphInfo.scriptProcessorSize = defaultScriptProcessorSize;
     audioGraphInfo.smoothingTimeConstant = defaultSmoothingTimeConstant;
     audioGraphInfo.minDecibels = defaultNoiseFloor;
+    audioGraphInfo.microphone = false;
+
+    function audioStartMicrophone(stream) {
+        audioGraphInfo.audioSource = audioContext.createMediaStreamSource(stream);
+        audioGraphInfo.microphone = true;
+        canvasManager.canvasLog("Audio microphone ready");
+        that.audioState = "loaded";
+        audioVizGraphConnect();
+        audioGraphConnect();
+    }
+
+    function listAudioInputs() {
+
+        if (typeof MediaStreamTrack === 'undefined'){
+            console.log("MediaStreamTrack unsupported");
+            return;
+        }
+        // in chrome://flags/
+        // enable this, but in chrome 32.0.1700.107 m and canary
+        // get "Functionality not implemented yet" exception
+
+        MediaStreamTrack.getSources(function(sourceInfos) {
+            var audioSource = null;
+            var videoSource = null;
+
+            for (var i = 0; i != sourceInfos.length; ++i) {
+                var sourceInfo = sourceInfos[i];
+                if (sourceInfo.kind === 'audio') {
+                    console.log(sourceInfo.id, sourceInfo.label || 'microphone');
+                    audioSource = sourceInfo.id;
+                }
+            }
+
+        //sourceSelected(audioSource, videoSource);
+        });
+
+    }
+
+
+    function audioMicrophone() {
+        navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+        canvasManager.canvasLog("Connecting microphone");
+        try {
+            navigator.getUserMedia({ audio: true }, audioStartMicrophone, function (e) {
+                canvasManager.fatalError("User audio not available: " + e.name);
+            });
+        } catch (e) {
+            alert('User audio is not supported in this browser');
+        }
+    }
 
     function audioLoad() {
 
@@ -204,9 +261,16 @@ function AudioManager(canvasManager) {
         var url = localStorage.getItem("audToPlay");
         if (!url) {
             canvasManager.fatalError("No audio URL");
-        }
+        } 
 
         that.audioState = "loading";
+
+        if (url === "userStream") {
+            listAudioInputs();
+            audioMicrophone();
+            return;
+        }
+            
         spinner = StartSpinner(canvasManager.canvasCtx, canvasManager.canvasShowLog);
 
         if (useAudioStream) {
@@ -295,16 +359,18 @@ function AudioManager(canvasManager) {
         }
     }
 
-    function changeNoiseFloorType(client) {
-        client.cbTitle(client.name + ": " + audioGraphInfo.minDecibels + " dB");
-    }
-
+    // we export this so the canvas manager can control it when changed to the spectrum display type
     // -140 to -90, range
     //              -90             -140
     var nfRange = noiseFloorMax - noiseFloorMin;
     var nfgui = noiseFloorMax - audioGraphInfo.minDecibels;
-    canvasManager.centerControl.addClient("Spectrum Noise Floor", nfgui, nfRange, changeNoiseFloorValue, changeNoiseFloorType);
 
+    this.noiseFloorControlEx = {
+        cbValue:  changeNoiseFloorValue,
+        set:    nfgui,
+        range:  nfRange,
+        title:  "Spectrum Noise Floor"
+    }
 
     // a database of all info needed by visualization
     this.realTimeInfo = {};
@@ -326,7 +392,6 @@ function AudioManager(canvasManager) {
         // We can see float data of both channels 
         // Looks like this must have an output channel and it must be attached to destination
         // so we use a gain node set to 0
-        // sizes: 256, 512, 1024, 2048, 4096, 8192, 16384
         audioGraphInfo.stereoTimeDomainNode = audioContext.createScriptProcessor(audioGraphInfo.scriptProcessorSize, 2, 2);
 
         // we have two async loops, animate at frame rate and audio process at sample rate/buffer size rate

@@ -35,67 +35,75 @@ function displaySpectrum(realTimeInfo) {
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
     analyser.getFloatFrequencyData(freqFloatData);
 
-    var barWidth = 1;
-    var barAveNum = 1.0;
+    var fbin = sampleRate/(2.0 * analyser.frequencyBinCount);    // frequency range per bin
 
-    var lastBin = analyser.frequencyBinCount;
-    var fbin = sampleRate/(2.0 * lastBin);    // frequency range per bin
-    // not plotting frequencies over 20 kHz
-    var numBars = Math.round(22100/fbin);
+    var numBins = analyser.frequencyBinCount; // limit bins = Math.round(22100/fbin);
 
-    if (numBars > canvasCtx.canvas.width ) {
-        // average to fit info in small window
-        barAveNum = 2.0;
-        numBars /= 2;
-    }
-
-    if (numBars <= canvasCtx.canvas.width/2) {
-        barWidth = 2;
-    }
-
-    if (numBars <= canvasCtx.canvas.width / 4) {
-        barWidth = 4;
-    }
-
-    if (numBars <= canvasCtx.canvas.width / 8) {
-        barWidth = 8;
-    }
+    var xPix = canvasCtx.canvas.width;
+    var skip = 0;
+    var skipInc = xPix / numBins;
 
     canvasCtx.save();
 
     canvasCtx.lineCap = 'round';
 
     // Draw rectangle for each frequency bin.
-    var bin = 0;
+    var cx = 0;
     var hue = 0.0;
     // http://www.w3.org/TR/css3-color/#hsla-color
-    var hinc = 270.0/numBars;
+    var hinc = 270.0 / numBins;
 
-    for (var i = 0; i < numBars; ++i) {
-        if (i > canvasCtx.canvas.width) {
-            //don't render if outside the canvas
-            break;
+    for (var i = 0; i < numBins; ++i) {
+
+        var x = Math.round(skip);
+        skip += skipInc;
+        var x1 = Math.round(skip);
+        var barWidth = 1;
+        var barAveNum = 1;
+
+        if (skipInc >= 1.0) {
+            // if display is larger than our data we use bigger bars
+            barWidth = x1 - x;
+            if (barWidth == 0) {
+                barWidth = 1;
+            }
+        } else {
+            // if display is smaller than our data we average the data
+            while (x == x1) {
+                barAveNum++;
+                skip += skipInc;
+                x1 = Math.round(skip);
+            }
         }
 
         var magnitude = 0;
         for (var b = 0; b < barAveNum; b++) {
-            magnitude += freqFloatData[bin++];
+            magnitude += freqFloatData[i];
+            i += b;
         }
         magnitude /= barAveNum;
 
+
         magnitude = (magnitude - analyser.minDecibels) * (analyser.maxDecibels - analyser.minDecibels);
+
         if (magnitude > peakMag) {
             peakMag = magnitude;
             //console.log(peakMag);
         }
 
         hue += hinc;
-
         canvasCtx.fillStyle = 'hsl(' + Math.round(hue) + ', 100%,50%)';
 
-        var bh = canvasCtx.canvas.height * magnitude/peakMag;
+        var nm = magnitude / peakMag;
+        var em = (Math.exp(nm) - 1) / (Math.E - 1);
+        var bh = canvasCtx.canvas.height * em;
 
-        canvasCtx.fillRect(i * barWidth, canvasCtx.canvas.height, barWidth, -bh);
+        canvasCtx.fillRect(x, canvasCtx.canvas.height, barWidth, -bh);
+
+        cx += barWidth;
+        if (cx > xPix) {
+            break;  // don't plot outside canvas
+        }
 
     }
     canvasCtx.restore();
@@ -159,7 +167,7 @@ function displayLissajousScript(realTimeInfo) {
 // We AGC the peak display
 var peakVolScope = .001;
 
-function drawScope(canvasCtx, dataBuf, hue) {
+function drawScope(canvasCtx, dataBuf, hue, triggerLevel) {
     var xPix = canvasCtx.canvas.width;
     var yPixh = canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
@@ -175,8 +183,9 @@ function drawScope(canvasCtx, dataBuf, hue) {
     var skip = 0;
     var skipInc = xPix / dataBuf.length;
     var ldf = yPixh - Math.round(dataBuf[0] * scaler);
+    var triggered = false;
 
-    for (var d = 1; d < dataBuf.length - 2; d++) {
+    for (var d = 1; d < dataBuf.length; d++) {
 
         var ldt = yPixh - Math.round(dataBuf[d] * scaler);
 
@@ -216,12 +225,13 @@ function displayOscilloscope(realTimeInfo) {
     }
 
     canvasCtx.save();
+
     canvasCtx.shadowBlur = 30;
     canvasCtx.lineWidth = 3;
     canvasCtx.lineJoin = "round";
     //canvasCtx.strokeStyle = gradient;
-    drawScope(canvasCtx, ldata, 200);
-    drawScope(canvasCtx, rdata, 100);
+    drawScope(canvasCtx, ldata, 200, realTimeInfo.scopeTriggerLevel);
+    drawScope(canvasCtx, rdata, 100, realTimeInfo.scopeTriggerLevel);
 
     canvasCtx.restore();
 }
