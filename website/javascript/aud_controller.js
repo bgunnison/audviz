@@ -20,11 +20,11 @@
 // a database of center control config
 // used by app to hook to gui and manage gui layout
 var centerControlConfig = {
-    div_id:             "center_control_vis",
-    title_id:           "center_control_title_text",
-    larrow_div:         "larrow",
-    rarrow_div:         "rarrow",
-    visibility:         "hidden",    // we start hidden
+    div_id:             'center_control_vis',
+    title_id:           'center_control_title_text',
+    larrow_div:         'larrow',
+    rarrow_div:         'rarrow',
+    visibility:         'hidden',    // we start hidden
     height:             300,
     width:              300,
     max_range:          1000,
@@ -42,7 +42,7 @@ function CenterControl(canvasCtx) {
 
     function Init(element) {
         // init gui visibility
-        console.log("Control init")
+        console.log('Control init');
 
         var myKnob = $(".dial").knob({
             'value':        centerControlConfig.defaultValue,
@@ -155,9 +155,9 @@ function CenterControl(canvasCtx) {
 
     this.centerOnCanvas = function () {
         var ew = this.element.offsetWidth;
-        var lPos = (this.canvasCtx.canvas.offsetLeft + this.canvasCtx.canvas.width / 2) - ew / 2 + "px";
+        var lPos = (this.canvasCtx.canvas.offsetLeft + this.canvasCtx.canvas.width / 2) - ew / 2 + 'px';
         this.element.style.marginLeft = lPos;
-        var tPos = (this.canvasCtx.canvas.offsetTop + this.canvasCtx.canvas.height / 2) - this.element.offsetHeight / 2 + "px";
+        var tPos = (this.canvasCtx.canvas.offsetTop + this.canvasCtx.canvas.height / 2) - this.element.offsetHeight / 2 + 'px';
         this.element.style.marginTop = tPos;
 
         // Arrows initial position is top left of central control
@@ -166,8 +166,8 @@ function CenterControl(canvasCtx) {
         ra.style.marginTop = tPos;
         la.style.marginTop = tPos;
        
-        la.style.marginLeft = (la.style.marginLeft - 80) + "px";
-        ra.style.marginLeft = (ew + 20) + "px";
+        la.style.marginLeft = (la.style.marginLeft - 80) + 'px';
+        ra.style.marginLeft = (ew + 20) + 'px';
         ra.onclick = rightArrowClick;
         la.onclick = leftArrowClick;
     }
@@ -182,7 +182,7 @@ function CenterControl(canvasCtx) {
      function makeVisible() {
         // the style is hidden so it does not flash at load
         that.element.style.visibility = 'visible';
-        $(that.element).fadeIn("slow","swing");
+        $(that.element).fadeIn('slow','swing');
         isVisible = true;
          that.centerOnCanvas();
 
@@ -191,7 +191,7 @@ function CenterControl(canvasCtx) {
      }
 
      function makeHidden() {
-        $(that.element).fadeOut("slow","swing");
+        $(that.element).fadeOut('slow','swing');
          isVisible = false;
         //this.element.style.visibility = 'hidden';
     }
@@ -216,7 +216,7 @@ function CenterControl(canvasCtx) {
 
     var touchPanelImages = [];
     function TouchPanelInit() {
-        LoadImage("../art/fporig.png",touchPanelImages)
+        LoadImage('../art/fporig.png',touchPanelImages)
     }
 
     this.draw = function() {
@@ -276,7 +276,7 @@ function PlayControls(ctx) {
         obj.ctx.beginPath();
         obj.ctx.arc(x, y, r, 0, Math.PI * 2, true);
         ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
         obj.ctx.closePath();
         if (fill) {
             obj.ctx.fillStyle = 'rgba(255,255,255,1)';
@@ -319,7 +319,7 @@ function PlayControls(ctx) {
     }
 
     function clear(obj) {
-        obj.ctx.fillStyle = "#000000";
+        obj.ctx.fillStyle = '#000000';
         obj.ctx.fillRect(0, 0, obj.ctx.canvas.width, obj.ctx.canvas.height);
     }
 

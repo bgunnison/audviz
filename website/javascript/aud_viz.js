@@ -228,7 +228,7 @@ function displayOscilloscope(realTimeInfo) {
 
     canvasCtx.shadowBlur = 30;
     canvasCtx.lineWidth = 3;
-    canvasCtx.lineJoin = "round";
+    canvasCtx.lineJoin = 'round';
     //canvasCtx.strokeStyle = gradient;
     drawScope(canvasCtx, ldata, 200, realTimeInfo.scopeTriggerLevel);
     drawScope(canvasCtx, rdata, 100, realTimeInfo.scopeTriggerLevel);

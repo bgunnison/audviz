@@ -23,7 +23,7 @@ var stereo = null;
 // realtime info for visualization
 function AudioManager(canvasManager) {
 
-    console.log("Audio Manager");
+    console.log('Audio Manager');
     // so private functions can get to this
     var that = this;
 
@@ -69,7 +69,7 @@ function AudioManager(canvasManager) {
     }
    
     // public fields
-    this.audioState = "init";
+    this.audioState = 'init';
 
     // represents a realtime clock that goes forever
     this.currentTime = function () {
@@ -92,9 +92,9 @@ function AudioManager(canvasManager) {
             }
         }
 
-        that.audioState = "playing";
+        that.audioState = 'playing';
         playTime = audioContext.currentTime;
-        canvasManager.canvasLog("Play started");
+        canvasManager.canvasLog('Play started');
         canvasManager.startAnimation();
     }
 
@@ -106,10 +106,10 @@ function AudioManager(canvasManager) {
         }
 
         if (audioGraphInfo.microphone == false) {
-            canvasManager.canvasLog("Waiting for play");
-            that.audioState = "userstartplay";
+            canvasManager.canvasLog('Waiting for play');
+            that.audioState = 'userstartplay';
         } else {
-            that.audioState = "playing";
+            that.audioState = 'playing';
         }
         canvasManager.startAnimation();
         canvasManager.canvasShowLog();
@@ -118,15 +118,15 @@ function AudioManager(canvasManager) {
     // connects audio for your listening pleasure
     function audioGraphConnect() {
         if (audioGraphInfo.audioSource == null) {
-            canvasManager.fatalError("can't connect - audio source is null")
+            canvasManager.fatalError('Cannot connect - audio source is null');
             return;
         }
 
-        audioGraphInfo.audioSource.connect(audioGraphInfo.masterGainNode);
-        audioGraphInfo.masterGainNode.connect(audioContext.destination);
+        audioGraphInfo.audioSource.connect(audioGraphInfo.masterGain);
+        audioGraphInfo.masterGain.connect(audioContext.destination);
 
-        canvasManager.canvasLog("Audio connected");
-        that.audioState = "connected";
+        canvasManager.canvasLog('Audio connected');
+        that.audioState = 'connected';
 
         if (spinner) {
             StopSpinner(spinner);
@@ -145,25 +145,25 @@ function AudioManager(canvasManager) {
     // connects audio for your viewing pleasure
     function audioVizGraphConnect() {
         if (audioGraphInfo.audioSource == null) {
-            canvasManager.fatalError("can't connect - audio source is null")
+            canvasManager.fatalError('cannot connect - audio source is null');
             return;
         }
 
         audioGraphInfo.audioSource.connect(audioGraphInfo.analyser);
         audioGraphInfo.audioSource.connect(audioGraphInfo.stereoTimeDomainNode);
-        audioGraphInfo.stereoTimeDomainNode.connect(audioGraphInfo.blackHoleGainNode);
-        audioGraphInfo.blackHoleGainNode.connect(audioContext.destination);
+        audioGraphInfo.stereoTimeDomainNode.connect(audioGraphInfo.blackHoleGain);
+        audioGraphInfo.blackHoleGain.connect(audioContext.destination);
     }
 
 
     function audioBuffer(buffer) {
         if (buffer == null) {
-            canvasManager.fatalError("decoded buffer is null");
+            canvasManager.fatalError('Decoded buffer is null');
             return;
         }
 
-        canvasManager.canvasLog("Audio decoded");
-        that.audioState = "decoded";
+        canvasManager.canvasLog('Audio decoded');
+        that.audioState = 'decoded';
 
         audioGraphInfo.audioSource = audioContext.createBufferSource();
         audioGraphInfo.audioSource.buffer = buffer;
@@ -174,20 +174,20 @@ function AudioManager(canvasManager) {
 
     function audioDecode() {
         if (soundBuffer == null) {
-            canvasManager.canvasLog("sound buffer is null");
+            canvasManager.canvasLog('Sound buffer is null');
             return;
         }
 
         audioContext.decodeAudioData(soundBuffer, audioBuffer,
             function () {
-                alert("error decoding!");
+                alert('Error decoding!');
             });
 
-        that.audioState = "decoding";
+        that.audioState = 'decoding';
     }
 
     function audioLoaded(arrayBuffer) {
-        that.audioState = "loaded";
+        that.audioState = 'loaded';
         soundBuffer = arrayBuffer;
         audioDecode();
     }
@@ -200,7 +200,7 @@ function AudioManager(canvasManager) {
 
     // database of Web audio nodes and their configuration
     var audioGraphInfo = {};
-    audioGraphInfo.masterGain = defaultGuiMasterGain/guiMasterGainMaxRange;
+    audioGraphInfo.masterGainValue = defaultGuiMasterGain/guiMasterGainMaxRange;
     audioGraphInfo.scriptProcessorSize = defaultScriptProcessorSize;
     audioGraphInfo.smoothingTimeConstant = defaultSmoothingTimeConstant;
     audioGraphInfo.minDecibels = defaultNoiseFloor;
@@ -209,8 +209,8 @@ function AudioManager(canvasManager) {
     function audioStartMicrophone(stream) {
         audioGraphInfo.audioSource = audioContext.createMediaStreamSource(stream);
         audioGraphInfo.microphone = true;
-        canvasManager.canvasLog("Audio microphone ready");
-        that.audioState = "loaded";
+        canvasManager.canvasLog('Audio microphone ready');
+        that.audioState = 'loaded';
         audioVizGraphConnect();
         audioGraphConnect();
     }
@@ -218,12 +218,12 @@ function AudioManager(canvasManager) {
     function listAudioInputs() {
 
         if (typeof MediaStreamTrack === 'undefined'){
-            console.log("MediaStreamTrack unsupported");
+            console.log('MediaStreamTrack unsupported');
             return;
         }
         // in chrome://flags/
         // enable this, but in chrome 32.0.1700.107 m and canary
-        // get "Functionality not implemented yet" exception
+        // get 'Functionality not implemented yet" exception
 
         MediaStreamTrack.getSources(function(sourceInfos) {
             var audioSource = null;
@@ -245,10 +245,10 @@ function AudioManager(canvasManager) {
 
     function audioMicrophone() {
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
-        canvasManager.canvasLog("Connecting microphone");
+        canvasManager.canvasLog('Connecting microphone');
         try {
             navigator.getUserMedia({ audio: true }, audioStartMicrophone, function (e) {
-                canvasManager.fatalError("User audio not available: " + e.name);
+                canvasManager.fatalError('User audio not available: ' + e.name);
             });
         } catch (e) {
             alert('User audio is not supported in this browser');
@@ -258,14 +258,14 @@ function AudioManager(canvasManager) {
     function audioLoad() {
 
         // We really want to stream the file so we don't have to wait for it all to download
-        var url = localStorage.getItem("audToPlay");
+        var url = localStorage.getItem('audToPlay');
         if (!url) {
-            canvasManager.fatalError("No audio URL");
+            canvasManager.fatalError('No audio URL');
         } 
 
-        that.audioState = "loading";
+        that.audioState = 'loading';
 
-        if (url === "userStream") {
+        if (url === 'userStream') {
             listAudioInputs();
             audioMicrophone();
             return;
@@ -278,17 +278,17 @@ function AudioManager(canvasManager) {
             audioStream = new Audio(url);
 
             audioStream.addEventListener('loadedmetadata', function(e) {
-                canvasManager.canvasLog("Audio length: " + Math.round(audioStream.duration) + " secs");
+                canvasManager.canvasLog('Audio length: ' + Math.round(audioStream.duration) + ' secs');
             });
 
             audioStream.addEventListener('canplay', function(e) {
-                canvasManager.canvasLog("Audio can play");
+                canvasManager.canvasLog('Audio can play');
             });
 
             audioStream.addEventListener('canplaythrough', function(e) {
                 audioGraphInfo.audioSource = audioContext.createMediaElementSource(audioStream);
-                canvasManager.canvasLog("Audio stream ready");
-                that.audioState = "loaded";
+                canvasManager.canvasLog('Audio stream ready');
+                that.audioState = 'loaded';
                 audioVizGraphConnect();
                 audioGraphConnect();
             });
@@ -298,7 +298,7 @@ function AudioManager(canvasManager) {
             }, false);
 
             audioStream.addEventListener('error', function() {
-                canvasManager.fatalError("Audio error: " + url);
+                canvasManager.fatalError('Audio error: ' + url);
             }, false);
 
             audioStream.load(); // needed for play on iOS
@@ -316,7 +316,7 @@ function AudioManager(canvasManager) {
 
             request.onerror = function() {
                 // if there is an error, switch the sound to HTML Audio
-                canvasManager.fatalError("Audio request error");
+                canvasManager.fatalError('Audio request error');
             }
 
             try {
@@ -326,28 +326,28 @@ function AudioManager(canvasManager) {
             }
         }
 
-        canvasManager.canvasLog("Audio request sent");
+        canvasManager.canvasLog('Audio request sent');
     }
 
 
     function changeMasterGainValue(client) {
-        if (audioGraphInfo.masterGainNode) {
+        if (audioGraphInfo.masterGain) {
             var linearGain = client.value/client.maxRange;
             // human perception in general is logarithmic
             var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
-            audioGraphInfo.masterGainNode.gain.value = expGain;
-            audioGraphInfo.masterGain = expGain;
-            client.cbTitle(client.name + ": " + Math.round(expGain * 100) + " %");
+            audioGraphInfo.masterGain.gain.value = expGain;
+            audioGraphInfo.masterGainValue = expGain;
+            client.cbTitle(client.name + ': ' + Math.round(expGain * 100) + ' %');
         }
     }
 
     function changeMasterGainType(client) {
-       audioGraphInfo.masterGain = audioGraphInfo.masterGainNode.gain.value;
-       client.cbTitle(client.name + ": " + Math.round(audioGraphInfo.masterGain * 100) + " %");
+       audioGraphInfo.masterGainValue = audioGraphInfo.masterGain.gain.value;
+       client.cbTitle(client.name + ': ' + Math.round(audioGraphInfo.masterGainValue * 100) + ' %');
     }
 
     // canvas owns control for now
-    canvasManager.centerControl.addClient("Gain", defaultGuiMasterGain , guiMasterGainMaxRange , changeMasterGainValue, changeMasterGainType);
+    canvasManager.centerControl.addClient('Gain', defaultGuiMasterGain , guiMasterGainMaxRange , changeMasterGainValue, changeMasterGainType);
 
     function changeNoiseFloorValue(client) {
         if (audioGraphInfo.analyser) {
@@ -355,7 +355,7 @@ function AudioManager(canvasManager) {
 
             audioGraphInfo.analyser.minDecibels = noiseFloor;
             audioGraphInfo.minDecibels = noiseFloor;
-            client.cbTitle(client.name + ": " + noiseFloor + " dB");
+            client.cbTitle(client.name + ': ' + noiseFloor + ' dB');
         }
     }
 
@@ -366,10 +366,10 @@ function AudioManager(canvasManager) {
     var nfgui = noiseFloorMax - audioGraphInfo.minDecibels;
 
     this.noiseFloorControlEx = {
-        cbValue:  changeNoiseFloorValue,
-        set:    nfgui,
-        range:  nfRange,
-        title:  "Spectrum Noise Floor"
+        cbValue:    changeNoiseFloorValue,
+        set:        nfgui,
+        range:      nfRange,
+        title:      'Spectrum Noise Floor'
     }
 
     // a database of all info needed by visualization
@@ -401,20 +401,20 @@ function AudioManager(canvasManager) {
         audioGraphInfo.stereoTimeDomainNode.onaudioprocess = audioCaptureTimeDomain;
 
         // script processor node needs to go somewhere to process
-        audioGraphInfo.blackHoleGainNode = audioContext.createGainNode();
-        audioGraphInfo.blackHoleGainNode.gain.value = 0;
+        audioGraphInfo.blackHoleGain = audioContext.createGain();
+        audioGraphInfo.blackHoleGain.gain.value = 0;
 
-        canvasManager.canvasLog("Audio viz nodes created");
+        canvasManager.canvasLog('Visualization nodes created');
     }
     
 
     // create the audio graph for listening
     function audioGraphCreate() {
 
-        audioGraphInfo.masterGainNode = audioContext.createGainNode();
-        audioGraphInfo.masterGainNode.gain.value = audioGraphInfo.masterGain;
+        audioGraphInfo.masterGain = audioContext.createGain();
+        audioGraphInfo.masterGain.gain.value = audioGraphInfo.masterGainValue;
 
-        canvasManager.canvasLog("Audio nodes created");
+        canvasManager.canvasLog('Audio nodes created');
     }
    
 

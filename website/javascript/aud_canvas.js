@@ -19,7 +19,7 @@ Author: Brian Gunnison (bgunnison@gmail.com)
 // everything about the canvas for audio visualization
 function AudioCanvas() {
 
-    console.log("Canvas Manager")
+    console.log('Canvas Manager');
     // a stupid way for private functions to get to this
     var that = this;
 
@@ -28,9 +28,9 @@ function AudioCanvas() {
     this.canvasCtx = canvasCtx;
     var canvasWidthProportion = 1.2;
     canvas.width = document.body.clientWidth / canvasWidthProportion;
-    canvas.style.border = "#D0D0D0 3px solid";
-    canvas.style.boxShadow = "3px 5px 3px #A0A0A0";
-    var canvasBackgroundColor = "#000000";
+    canvas.style.border = '#D0D0D0 3px solid';
+    canvas.style.boxShadow = '3px 5px 3px #A0A0A0';
+    var canvasBackgroundColor = '#000000';
 
     this.clearCanvas = function () {
         canvasCtx.fillStyle = canvasBackgroundColor;
@@ -45,8 +45,8 @@ function AudioCanvas() {
     // displays all log msgs on canvas
     this.canvasShowLog = function () {
         canvasCtx.save();
-        canvasCtx.font = "10pt Arial Bold";
-        canvasCtx.fillStyle = "#A0A0A0"
+        canvasCtx.font = '10pt Arial Bold';
+        canvasCtx.fillStyle = '#A0A0A0';
         var yPos = 10;
         for (var i = 0; i < logMsgs.length; i++) {
             canvasCtx.fillText(logMsgs[i], 10, yPos);
@@ -62,7 +62,7 @@ function AudioCanvas() {
         this.canvasShowLog();
     }
 
-    this.canvasLog("Canvas created");
+    this.canvasLog('Canvas created');
     
     // need to do something to recover out of here. 
     this.fatalError = function (msg) {
@@ -110,19 +110,19 @@ function AudioCanvas() {
             handle(e.pageX, e.pageY);
 
             switch (audioManager.audioState) {
-                case "userstartplay":
+                case 'userstartplay':
                     // unlocks web audio for iOS
                    audioManager.playStart();
                    break;
 
-                case "playing":
+                case 'playing':
                     // ramp down volume
-                    //audioState = "paused";
+                    //audioState = 'paused';
                     break;
 
-                case "paused":
+                case 'paused':
                     // ramp up volume
-                    //audioState = "playing";
+                    //audioState = "playing';
                     break;
 
                 default:
@@ -146,7 +146,7 @@ function AudioCanvas() {
     // hookup to GUI
 
     // audio manager owns spectrum noise floor
-    this.centerControl.addClient("Spectrum",
+    this.centerControl.addClient('Spectrum',
         audioManager.noiseFloorControlEx.set,
         audioManager.noiseFloorControlEx.range,
         audioManager.noiseFloorControlEx.cbValue,
@@ -155,11 +155,11 @@ function AudioCanvas() {
     });
 
 
-    this.centerControl.addClient("Lissajous", 0, 0, null,  function(client) {
+    this.centerControl.addClient('Lissajous', 0, 0, null,  function(client) {
         currentVizMethod = displayLissajousScript;
     });
 
-    this.centerControl.addClient("Oscilloscope", 0, 0, null,  function(client) {
+    this.centerControl.addClient('Oscilloscope', 0, 0, null,  function(client) {
         currentVizMethod = displayOscilloscope;
     });
 
@@ -167,10 +167,10 @@ function AudioCanvas() {
     // called by audio manager when audio stops (sometimes)
     this.playEnded = function () {
         this.clearCanvas();
-        this.canvasLog("Play end");
-        this.canvasLog("Peak anim: " + rtData.AnimPeak.toFixed(4));
+        this.canvasLog('Play end');
+        this.canvasLog('Peak anim: ' + rtData.AnimPeak.toFixed(4));
         var ave = rtData.AnimTotal / rtData.AnimCount;
-        this.canvasLog("Ave anim: " + ave.toFixed(4));
+        this.canvasLog('Ave anim: ' + ave.toFixed(4));
         this.canvasShowLog();
     }
 
@@ -197,7 +197,7 @@ function AudioCanvas() {
 
         that.clearCanvas();
 
-        if (audioManager && audioManager.audioState == "userstartplay") {
+        if (audioManager && audioManager.audioState == 'userstartplay') {
             if (playControls) {
                 playControls.drawPlayButton();
             }
@@ -221,7 +221,7 @@ function AudioCanvas() {
 
     // runs at animate rate
     function rafCallback(time) {
-        window.webkitRequestAnimationFrame(rafCallback, canvas);
+        window.requestAnimationFrame(rafCallback, canvas);
         canvasAnimate(time);
     }
 
@@ -234,7 +234,7 @@ function AudioCanvas() {
 var audioCanvas = null;
 
 function onLoad(e) {
-    console.log("Page Loaded");
+    console.log('Page Loaded');
     audioCanvas = new AudioCanvas();
 }
 

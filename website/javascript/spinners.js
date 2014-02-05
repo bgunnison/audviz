@@ -21,14 +21,14 @@ var drawSpinner = function(ctx, lines, date, cbFunc) {
         cH = ctx.canvas.height/4;
     var rotation = parseInt(((new Date() - date) / 1000) * lines) / lines;
     ctx.save();
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (cbFunc != null) {
         cbFunc();
     }
     ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
     ctx.rotate(Math.PI * 2 * rotation);
-    ctx.lineCap = "round";
+    ctx.lineCap = 'round';
     for (var i = 0; i < lines; i++) {
 
         ctx.beginPath();
@@ -36,7 +36,7 @@ var drawSpinner = function(ctx, lines, date, cbFunc) {
         ctx.moveTo(cW / 10, 0);
         ctx.lineTo(cW / 4.5, 0);
         ctx.lineWidth = cW / 20;
-        ctx.strokeStyle = "rgba(255, 255, 255," + i / lines + ")";
+        ctx.strokeStyle = 'rgba(255, 255, 255,' + i / lines + ')';
         ctx.stroke();
     }
     ctx.restore();
