@@ -27,12 +27,16 @@ function AudioManager(canvasManager) {
     // so private functions can get to this
     var that = this;
 
+    var audioLoop = false;
+
     var scriptProcessorSizes = [256, 512, 1024, 2048, 4096, 8192, 16384];
     var defaultScriptProcessorSize = scriptProcessorSizes[2];
     var defaultSmoothingTimeConstant = 0.3;
     var defaultNoiseFloor = -110;
     var noiseFloorMax = -90;
     var noiseFloorMin = -140;
+    var fftLengths = [1024, 2048];
+    var defaultFftLength = fftLengths[1];
 
     // used via central control to set gain
     // big enough so no zipper noise
@@ -204,6 +208,7 @@ function AudioManager(canvasManager) {
     audioGraphInfo.scriptProcessorSize = defaultScriptProcessorSize;
     audioGraphInfo.smoothingTimeConstant = defaultSmoothingTimeConstant;
     audioGraphInfo.minDecibels = defaultNoiseFloor;
+    audioGraphInfo.fftLength = defaultFftLength;
     audioGraphInfo.microphone = false;
 
     function audioStartMicrophone(stream) {
@@ -295,6 +300,9 @@ function AudioManager(canvasManager) {
 
             audioStream.addEventListener('ended', function () {
                 canvasManager.playEnded();
+                if (that.audioLoop) {
+                    setTimeout(audioLoad, 10);
+                }
             }, false);
 
             audioStream.addEventListener('error', function() {
@@ -329,48 +337,65 @@ function AudioManager(canvasManager) {
         canvasManager.canvasLog('Audio request sent');
     }
 
-
-    function changeMasterGainValue(client) {
+    //
+    // Audio GUI hooks
+    function changeMasterGainValue(parm) {
         if (audioGraphInfo.masterGain) {
-            var linearGain = client.value/client.maxRange;
+            var linearGain = parm.value/parm.maxRange;
             // human perception in general is logarithmic
             var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
             audioGraphInfo.masterGain.gain.value = expGain;
             audioGraphInfo.masterGainValue = expGain;
-            client.cbTitle(client.name + ': ' + Math.round(expGain * 100) + ' %');
+            parm.cbTitle('Gain: ' + Math.round(expGain * 100) + ' %');
         }
     }
 
-    function changeMasterGainType(client) {
-       audioGraphInfo.masterGainValue = audioGraphInfo.masterGain.gain.value;
-       client.cbTitle(client.name + ': ' + Math.round(audioGraphInfo.masterGainValue * 100) + ' %');
+    function masterGainSelect(parm) {
+        parm.cbTitle('Gain: ' + Math.round( audioGraphInfo.masterGainValue * 100) + ' %');
     }
 
-    // canvas owns control for now
-    canvasManager.centerControl.addClient('Gain', defaultGuiMasterGain , guiMasterGainMaxRange , changeMasterGainValue, changeMasterGainType);
+    function audioSelect(client) {
+       // nothing to do yet
+    }
 
-    function changeNoiseFloorValue(client) {
+    // canvas owns controls for now
+    canvasManager.centerControl.addClient('Audio', audioSelect);
+
+    canvasManager.centerControl.addClientParm(
+        'Audio',
+        'Gain',
+        defaultGuiMasterGain ,
+        guiMasterGainMaxRange ,
+        changeMasterGainValue,
+        masterGainSelect);
+
+    function changeNoiseFloorValue(parm) {
         if (audioGraphInfo.analyser) {
-            var noiseFloor = noiseFloorMin + client.value;
-
+            var noiseFloor = noiseFloorMin + parm.value;
             audioGraphInfo.analyser.minDecibels = noiseFloor;
             audioGraphInfo.minDecibels = noiseFloor;
-            client.cbTitle(client.name + ': ' + noiseFloor + ' dB');
+            parm.cbTitle('Noise floor: ' + noiseFloor + ' dB');
         }
     }
 
-    // we export this so the canvas manager can control it when changed to the spectrum display type
+    function noiseFloorSelect(parm) {
+        parm.cbTitle('Noise floor: ' + audioGraphInfo.minDecibels + ' dB');
+    }
+
     // -140 to -90, range
     //              -90             -140
     var nfRange = noiseFloorMax - noiseFloorMin;
     var nfgui = noiseFloorMax - audioGraphInfo.minDecibels;
 
-    this.noiseFloorControlEx = {
-        cbValue:    changeNoiseFloorValue,
-        set:        nfgui,
-        range:      nfRange,
-        title:      'Spectrum Noise Floor'
-    }
+    // make sure canvas has already added this client
+    canvasManager.centerControl.addClientParm(
+        'Spectrum',
+        'noiseFloor',
+        nfgui ,
+        nfRange ,
+        changeNoiseFloorValue,
+        noiseFloorSelect);
+
 
     // a database of all info needed by visualization
     this.realTimeInfo = {};
@@ -384,7 +409,7 @@ function AudioManager(canvasManager) {
         that.realTimeInfo.rdata = new Float32Array(audioGraphInfo.scriptProcessorSize);
 
         // one spectrum display for now
-        audioGraphInfo.analyser = audioContext.createAnalyser();
+        audioGraphInfo.analyser = audioContext.createAnalyser(audioGraphInfo.fftLength);
         audioGraphInfo.analyser.DefaultSmoothingTimeConstant = audioGraphInfo.smoothingTimeConstant;
         audioGraphInfo.analyser.minDecibels = audioGraphInfo.minDecibels; //-110;
         that.realTimeInfo.analyser = audioGraphInfo.analyser;

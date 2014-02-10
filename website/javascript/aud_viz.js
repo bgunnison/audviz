@@ -31,13 +31,24 @@ function displaySpectrum(realTimeInfo) {
     var analyser =      realTimeInfo.analyser;
     var canvasCtx =     realTimeInfo.canvasCtx;
     var sampleRate =    realTimeInfo.sampleRate;
+    // attach these to gui later
+    var freqHi = sampleRate/2; // || realTimeInfo.fftFreqHi;
+    var freqLo = 0.0; //|| realTimeInfo.fftFreqLow;
+    //freqHi = 2000;
 
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
     analyser.getFloatFrequencyData(freqFloatData);
 
-    var fbin = sampleRate/(2.0 * analyser.frequencyBinCount);    // frequency range per bin
+    // plotting a range of frequencies we jsut limit the bins to plot
+    var freqPerBin = sampleRate/(2.0 * analyser.frequencyBinCount);    // frequency range per bin
+    var maxBins = analyser.frequencyBinCount; // limit bins = Math.round(22100/freqPerBin);
+    var startBin = 0; //Math.round(freqLo/freqPerBin);
+    var endBin = maxBins; //Math.round(freqHi/freqPerBin);
+    if (endBin <= startBin || endBin > maxBins) {
+        return;
+    }
 
-    var numBins = analyser.frequencyBinCount; // limit bins = Math.round(22100/fbin);
+    var numBins = endBin - startBin;
 
     var xPix = canvasCtx.canvas.width;
     var skip = 0;
@@ -45,7 +56,7 @@ function displaySpectrum(realTimeInfo) {
 
     canvasCtx.save();
 
-    canvasCtx.lineCap = 'round';
+    //canvasCtx.lineCap = 'round';
 
     // Draw rectangle for each frequency bin.
     var cx = 0;
@@ -53,7 +64,7 @@ function displaySpectrum(realTimeInfo) {
     // http://www.w3.org/TR/css3-color/#hsla-color
     var hinc = 270.0 / numBins;
 
-    for (var i = 0; i < numBins; ++i) {
+    for (var i = startBin; i < endBin; ++i) {
 
         var x = Math.round(skip);
         skip += skipInc;
@@ -82,7 +93,6 @@ function displaySpectrum(realTimeInfo) {
             i += b;
         }
         magnitude /= barAveNum;
-
 
         magnitude = (magnitude - analyser.minDecibels) * (analyser.maxDecibels - analyser.minDecibels);
 

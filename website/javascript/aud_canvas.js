@@ -23,6 +23,9 @@ function AudioCanvas() {
     // a stupid way for private functions to get to this
     var that = this;
 
+    // set false to see logs on canvas for debug
+    var canvasLogDisable = true;
+
     var canvas = document.getElementById('viz_canvas1');
     var canvasCtx = canvas.getContext('2d');
     this.canvasCtx = canvasCtx;
@@ -44,6 +47,9 @@ function AudioCanvas() {
 
     // displays all log msgs on canvas
     this.canvasShowLog = function () {
+        if (canvasLogDisable) {
+            return;
+        }
         canvasCtx.save();
         canvasCtx.font = '10pt Arial Bold';
         canvasCtx.fillStyle = '#A0A0A0';
@@ -136,32 +142,29 @@ function AudioCanvas() {
     var playControls = new PlayControls(canvasCtx);
     this.centerControl = new CenterControl(canvasCtx);
 
+    var currentVizMethod = displaySpectrum;
+
+    // hook up GUI to scroll thru viz types and their parms
+    this.centerControl.addClient('Spectrum', function (client) {
+        currentVizMethod = displaySpectrum;
+    });
+
+    this.centerControl.addClient('Lissajous', function(client) {
+        currentVizMethod = displayLissajousScript;
+    });
+
+    this.centerControl.addClient('Oscilloscope', function(client) {
+        currentVizMethod = displayOscilloscope;
+    });
+
+
     // instantiate audio manager
     var audioManager = new AudioManager(this);
     audioManager.realTimeInfo.canvasCtx = canvasCtx;
     audioManager.realTimeInfo.scopeTriggerLevel = 0;
 
-    var currentVizMethod = displaySpectrum;
-
-    // hookup to GUI
-
-    // audio manager owns spectrum noise floor
-    this.centerControl.addClient('Spectrum',
-        audioManager.noiseFloorControlEx.set,
-        audioManager.noiseFloorControlEx.range,
-        audioManager.noiseFloorControlEx.cbValue,
-        function (client) {
-        currentVizMethod = displaySpectrum;
-    });
 
 
-    this.centerControl.addClient('Lissajous', 0, 0, null,  function(client) {
-        currentVizMethod = displayLissajousScript;
-    });
-
-    this.centerControl.addClient('Oscilloscope', 0, 0, null,  function(client) {
-        currentVizMethod = displayOscilloscope;
-    });
 
 
     // called by audio manager when audio stops (sometimes)

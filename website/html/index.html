@@ -16,24 +16,30 @@ limitations under the License.
 Brian Gunnison (bgunnison@gmail.com)
 -->
     <head>
-        <title>Gunnison</title>
+        <title>Gunnison Audio Technology Demo</title>
 
+    <link href='http://fonts.googleapis.com/css?family=Audiowide' rel='stylesheet' type='text/css'>
     <style type="text/css">
     body,td,th {
-	font-family: "Times New Roman", Times, serif;
+	font-family: 'Audiowide', sans-serif;
 	font-size: 16px;
 	color: #CCC;
 	background-color: #000;
 	}        
     .aud_select
     {
-	height: 146px;
-	width: 362px;
+	height: 60px;
+	width: 399px;
 	background-color: blue;
 	cursor: pointer;
 	font-size: 36px;
+    font-family: 'Audiowide', sans-serif;
     }
-    </style>
+        .auto-style1
+        {
+            font-size: xx-large;
+        }
+        </style>
     
     <meta charset="utf-8">
     <script src="../javascript/aud_bkgnd.js"></script>
@@ -45,31 +51,34 @@ Brian Gunnison (bgunnison@gmail.com)
             console.log(fileToPlay);
             localStorage.setItem('audToPlay', fileToPlay);
             window.location = 'audviz.html';
+            //window.open('audviz.html');
         }
-    </script>
 
- 	<div  style="position: absolute; left: 0px; top: 0px; z-index: 5; box-shadow:inset 0 0 100px #050606;">
-              	 <canvas id="bkgnd_canvas1" class="viz_canvas" width="512" height="512"> </canvas>
-        </div>
-        
-    <div id="aud_select" style="position: absolute; left: 26px; top: 27px; z-index: 10; width: 848px;">
-        <p><img src="../art/Xgunnerlogo0021.png" width="147" height="102" alt="logo"> </p>
-        <h1><strong>Select the sound you want to visualize:</strong></h1>
-        <p> &nbsp;&nbsp;<input class="aud_select" value="Candle" onclick="PlayAud('../media/auds/Candle.mp3');" type="button">
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; 
-            <input class="aud_select" value="Sweep" onclick="PlayAud('../media/auds/sweep.mp3');" type="button"></p>
-        <p>&nbsp; </p>
-        &nbsp;&nbsp;<input class="aud_select" value="OOP" onclick="PlayAud('../media/auds/oop.mp3');" type="button">
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-         <input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button">
-        <p>&nbsp; </p>
-        &nbsp;&nbsp;<input class="aud_select" value="White noise" onclick="PlayAud('../media/auds/whitenoise.mp3');" type="button">
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-        <input class="aud_select" value="Two Five One" onclick="PlayAud('../media/auds/251.mp3');" type="button">&nbsp;&nbsp;&nbsp;
-         <p>&nbsp; </p>
-         &nbsp;&nbsp;<input class="aud_select" value="Microphone" onclick="PlayAud('userStream');" type="button"></div>
-    
-        
+    </script>
+    <div style="border: 0 none; position: fixed; right: 5px; top: 5px; z-index: 10;">
+        <a href="https://github.com/bgunnison/audviz" target="_blank"><img src="../art/github-ribbon.png" style="border: 0 none;"></a>
+    </div>
+    <div>
+      <img src="../art/Xgunnerlogo0021.png" width="147" height="102" alt="logo">&nbsp;
+     
+    <strong><span class="auto-style1">Select the sound you want to visualize:</span></strong>
+      </div>        
+    <div id="aud_select" style="position: absolute; left: 39px; top: 142px; z-index: 10; width: 1217px; height: 837px;">
+  
+        <input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button"><br />
+        <input class="aud_select" value="Sweep" onclick="PlayAud('../media/auds/sweep.mp3');" type="button"><br />
+        <input class="aud_select" value="White noise" onclick="PlayAud('../media/auds/whitenoise.mp3');" type="button"><br />
+        <input class="aud_select" value="OOP" onclick="PlayAud('../media/auds/oop.mp3');" type="button"><br />
+        <input class="aud_select" value="Candle" onclick="PlayAud('../media/auds/Candle.mp3');" type="button"><br />
+        <input class="aud_select" value="Microphone" onclick="PlayAud('userStream');" type="button"><br />
+        <input class="aud_select" value="SoundCloud" onclick="PlayAud('http://api.soundcloud.com/tracks/113156246/stream' + '?client_id=YOUR_CLIENT_ID');" type="button"><p></p>
+
+    </div>
+
+    <div  style="position: absolute; left: 0px; top: 0px; z-index: 5; ">
+     <canvas id="bkgnd_canvas1" class="viz_canvas" width="12" height="12"> </canvas>
+    </div>
+
 </body>
 
 </html>
