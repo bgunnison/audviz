@@ -113,7 +113,9 @@ function AudioCanvas() {
             }
         } else {
 
-            handle(e.pageX, e.pageY);
+            if (audioManager.audioState == 'playing') {
+                handle(e.pageX, e.pageY);
+            }
 
             switch (audioManager.audioState) {
                 case 'userstartplay':

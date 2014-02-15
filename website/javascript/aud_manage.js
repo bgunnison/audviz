@@ -51,7 +51,7 @@ function AudioManager(canvasManager) {
     }
 
     // set for test on desktop
-   // iOS = true;
+    iOS = true;
 
     var audioContext = null;
 
@@ -91,7 +91,7 @@ function AudioManager(canvasManager) {
             if (useAudioStream) {
                 audioStream.play();
             } else {
-                audioGraphInfo.audioSource.start(0, pauseTime);
+                audioGraphInfo.nodes['Source'].node.start(0, pauseTime);
             }
         }
 
