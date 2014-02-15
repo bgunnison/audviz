@@ -36,7 +36,7 @@ var centerControlConfig = {
 var vizControlConfig = {
     div_id:          'viz_selectors',
     selectLeft:      'viz_left_arrow',
-    selectTitle:     'viz_title_arrow',
+    selectParm:      'viz_center_button',
     selectRight:     'viz_right_arrow',
     visibility:      'visible'
 };
@@ -48,7 +48,6 @@ function CenterControl(canvasCtx) {
     var isVisible = false;
 
     function Init() {
-        // init gui visibility
         console.log('Control init');
 
         var myKnob = $(".dial").knob({
@@ -68,6 +67,10 @@ function CenterControl(canvasCtx) {
             'angleArc':     290,
             change:         centralControlChangedParmValue
         });
+
+        document.getElementById(vizControlConfig.selectLeft).onclick = clientLeftArrowClick;
+        document.getElementById(vizControlConfig.selectParm).onclick = nextParmClick;
+        document.getElementById(vizControlConfig.selectRight).onclick = clientRightArrowClick;
     }
 
 
@@ -132,11 +135,21 @@ function CenterControl(canvasCtx) {
         client.parms.list.push(parmName);
     }
 
-
+    this.startup = function(clientName, parmName) {
+        var clientIndex = clients.list.indexOf(clientName);
+        if ( clientIndex >= 0) {
+            clients.current = clientIndex;
+            var client = clients[clientName];
+            var parmIndex = client.parms.list.indexOf(parmName);
+            if ( parmIndex >= 0) {
+                client.parms.current = parmIndex;
+            }
+            clientSelect(clients.list[clients.current]);
+        }
+    }
 
     // user selected a new parm of current client
     function centralControlSelect(parm) {
-        console.log('Parm selected: ' + parm);
         // tell client we changed to it
         parm.cbSelect(parm);
         centerControlMaxRangeValue(parm.maxRange, parm.value);
@@ -166,7 +179,7 @@ function CenterControl(canvasCtx) {
 
     // callback from client to set select title
     function clientTitle(title) {
-        $("#" + vizControlConfig.selectTitle).text(title);
+        $("#" + vizControlConfig.selectParm).text(title);
     }
 
     // callback from client to set control title
@@ -205,21 +218,28 @@ function CenterControl(canvasCtx) {
         centralControlSelect(client.parms[client.parms.list[client.parms.current]]);
     }
 
-    function parmLeftArrowClick() {
+    function nextParmClick() {
         var clientName = clients.list[clients.current];
         var client = clients[clientName];
 
         if (client.parms.list.length == 0) {
             return;
         }
-        client.parms.current--;
-        if (client.parms.current < 0) {
-            client.parms.current = client.parms.list.length - 1;
+
+        if (client.parms.list.length == 1) {
+            makeVisible();
+            return;
+        }
+
+        client.parms.current++;
+        if (client.parms.current >= client.parms.list.length) {
+            client.parms.current = 0;
         }
         centralControlSelect(client.parms[client.parms.list[client.parms.current]]);
+        makeVisible();
     }
 
-    // user selected a new parm of current client
+    // user a new client
     function clientSelect(name) {
         // tell client we changed to it
         var client = clients[name];
@@ -228,6 +248,7 @@ function CenterControl(canvasCtx) {
         if (client.parms.list.length > 0) {
             centralControlSelect(client.parms[client.parms.list[client.parms.current]]);
         }
+
         makeHidden();
     }
 
@@ -262,30 +283,15 @@ function CenterControl(canvasCtx) {
 
         var lPos = ccHoriz - ew / 2 + 'px';
         this.centralControlId.style.marginLeft = lPos;
-        var tPos = ccVert - this.centralControlId.offsetHeight / 2 + 'px';
+        var tPos = ccVert - (this.centralControlId.offsetHeight / 2) - 20  + 'px';
         this.centralControlId.style.marginTop = tPos;
 
-        /*
-        // Arrows initial position is top left of central control
-        var ra = document.getElementById(centerControlConfig.rarrow_div);
-        var la = document.getElementById(centerControlConfig.larrow_div);
-        ra.style.marginTop = tPos;
-        la.style.marginTop = tPos;
-       
-        la.style.marginLeft = (la.style.marginLeft - 80) + 'px';
-        ra.style.marginLeft = (ew + 20) + 'px';
-        ra.onclick = parmRightArrowClick;
-        la.onclick = parmLeftArrowClick;
-        */
+        //var ti = document.getElementById(centerControlConfig.title_id);
+        //ti.style.marginTop = ccVert + 'px';
 
         var sb = document.getElementById(vizControlConfig.div_id);
-        //sb.style.position = 'absolute';
         sb.style.marginLeft =  ccHoriz - sb.offsetWidth / 2 + 'px';
         sb.style.marginTop =  ccVert + (this.canvasCtx.canvas.height / 2) + 5 +  'px';
-        document.getElementById(vizControlConfig.selectLeft).onclick = clientLeftArrowClick;
-        //document.getElementById(vizControlConfig.selectTitle).onclick = vizSelectTitle;
-        document.getElementById(vizControlConfig.selectRight).onclick = clientRightArrowClick;
-
     }
 
     var controlTimeoutObj = null;
@@ -296,11 +302,18 @@ function CenterControl(canvasCtx) {
      }
 
      function makeVisible() {
+         var clientName = clients.list[clients.current];
+         var client = clients[clientName];
+
+         if (client.parms.list.length == 0) {
+             return;
+         }
+
         // the style is hidden so it does not flash at load
         that.centralControlId.style.visibility = 'visible';
         $(that.centralControlId).fadeIn('slow','swing');
         isVisible = true;
-         that.centerOnCanvas();
+        that.centerOnCanvas();
 
         // hide control after 5 seconds uf no use
          controlTimeout();
@@ -371,7 +384,45 @@ function CenterControl(canvasCtx) {
     //TouchPanelInit();
 }
 
+/* overload draw function for knob someday
+ var a = this.angle(this.cv)  // Angle
+ , sa = this.startAngle          // Previous start angle
+ , sat = this.startAngle         // Start angle
+ , ea                            // Previous end angle
+ , eat = sat + a                 // End angle
+ , r = true;
 
+ this.g.lineWidth = this.lineWidth;
+
+ this.o.cursor
+ && (sat = eat - 0.3)
+ && (eat = eat + 0.3);
+
+ if (this.o.displayPrevious) {
+ ea = this.startAngle + this.angle(this.value);
+ this.o.cursor
+ && (sa = ea - 0.3)
+ && (ea = ea + 0.3);
+ this.g.beginPath();
+ this.g.strokeStyle = this.previousColor;
+ this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sa, ea, false);
+ this.g.stroke();
+ }
+
+ this.g.beginPath();
+ this.g.strokeStyle = r ? this.o.fgColor : this.fgColor ;
+ this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sat, eat, false);
+ this.g.stroke();
+
+ this.g.lineWidth = 2;
+ this.g.beginPath();
+ this.g.strokeStyle = this.o.fgColor;
+ this.g.arc(this.xy, this.xy, this.radius - this.lineWidth + 1 + this.lineWidth * 2 / 3, 0, 2 * Math.PI, false);
+ this.g.stroke();
+
+ return false;
+ }
+ */
 
 // implements a canvas based play, pause control
 // also exports basic shapes

@@ -39,7 +39,7 @@ function displaySpectrum(realTimeInfo) {
     var freqFloatData = new Float32Array(analyser.frequencyBinCount);
     analyser.getFloatFrequencyData(freqFloatData);
 
-    // plotting a range of frequencies we jsut limit the bins to plot
+    // plotting a range of frequencies we just limit the bins to plot
     var freqPerBin = sampleRate/(2.0 * analyser.frequencyBinCount);    // frequency range per bin
     var maxBins = analyser.frequencyBinCount; // limit bins = Math.round(22100/freqPerBin);
     var startBin = 0; //Math.round(freqLo/freqPerBin);
@@ -62,6 +62,7 @@ function displaySpectrum(realTimeInfo) {
     var cx = 0;
     var hue = 0.0;
     // http://www.w3.org/TR/css3-color/#hsla-color
+    // the high frequencies are a pretty UV
     var hinc = 270.0 / numBins;
 
     for (var i = startBin; i < endBin; ++i) {
@@ -101,7 +102,7 @@ function displaySpectrum(realTimeInfo) {
             //console.log(peakMag);
         }
 
-        hue += hinc;
+        hue = i * hinc;
         canvasCtx.fillStyle = 'hsl(' + Math.round(hue) + ', 100%,50%)';
 
         var nm = magnitude / peakMag;
@@ -177,18 +178,26 @@ function displayLissajousScript(realTimeInfo) {
 // We AGC the peak display
 var peakVolScope = .001;
 
-function drawScope(canvasCtx, dataBuf, hue, triggerLevel) {
-    var xPix = canvasCtx.canvas.width;
-    var yPixh = canvasCtx.canvas.height / 2;
+function drawScope(realTimeInfo, channel, hue) {
+    var xPix = realTimeInfo.canvasCtx.canvas.width;
+    var yPixh = realTimeInfo.canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
     var lcolor = 'hsla(' + hue + ', 100%,50%, 0.8)';
 
-    canvasCtx.strokeStyle = lcolor;
+    realTimeInfo.canvasCtx.strokeStyle = lcolor;
 
     hue += 10;
-    canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
+    realTimeInfo.canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
 
-    canvasCtx.beginPath();
+    realTimeInfo.canvasCtx.beginPath();
+
+    if (channel == 0) {
+        var dataBuf = realTimeInfo.ldata;
+    }
+
+    if (channel == 1) {
+        var dataBuf = realTimeInfo.rdata;
+    }
 
     var skip = 0;
     var skipInc = xPix / dataBuf.length;
@@ -210,8 +219,8 @@ function drawScope(canvasCtx, dataBuf, hue, triggerLevel) {
             //console.log(x, ldf)
         }
 
-        canvasCtx.moveTo(x, ldf);
-        canvasCtx.lineTo(x1, ldt);
+        realTimeInfo.canvasCtx.moveTo(x, ldf);
+        realTimeInfo.canvasCtx.lineTo(x1, ldt);
 
         ldf = ldt;
 
@@ -220,28 +229,24 @@ function drawScope(canvasCtx, dataBuf, hue, triggerLevel) {
         }
     }
 
-    canvasCtx.stroke();
+    realTimeInfo.canvasCtx.stroke();
 }
 
 
 function displayOscilloscope(realTimeInfo) {
 
-    var canvasCtx = realTimeInfo.canvasCtx;
-    var ldata = realTimeInfo.ldata;
-    var rdata = realTimeInfo.rdata;
-
-    if(ldata.length < 32) {
+    if(realTimeInfo.ldata.length < 32) {
         return;
     }
 
-    canvasCtx.save();
+    realTimeInfo.canvasCtx.save();
 
-    canvasCtx.shadowBlur = 30;
-    canvasCtx.lineWidth = 3;
-    canvasCtx.lineJoin = 'round';
+    realTimeInfo.canvasCtx.shadowBlur = 30;
+    realTimeInfo.canvasCtx.lineWidth = 3;
+    realTimeInfo.canvasCtx.lineJoin = 'round';
     //canvasCtx.strokeStyle = gradient;
-    drawScope(canvasCtx, ldata, 200, realTimeInfo.scopeTriggerLevel);
-    drawScope(canvasCtx, rdata, 100, realTimeInfo.scopeTriggerLevel);
+    drawScope(realTimeInfo, 0, 200);
+    drawScope(realTimeInfo, 1, 100);
 
-    canvasCtx.restore();
+    realTimeInfo.canvasCtx.restore();
 }

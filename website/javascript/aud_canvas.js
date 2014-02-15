@@ -24,7 +24,7 @@ function AudioCanvas() {
     var that = this;
 
     // set false to see logs on canvas for debug
-    var canvasLogDisable = true;
+    var canvasLogDisable = false;
 
     var canvas = document.getElementById('viz_canvas1');
     var canvasCtx = canvas.getContext('2d');
@@ -137,6 +137,10 @@ function AudioCanvas() {
          }
     });
 
+    // instantiate audio manager
+    var audioManager = new AudioManager(this);
+    audioManager.realTimeInfo.canvasCtx = canvasCtx;
+    audioManager.realTimeInfo.scopeTriggerLevel = 0;
 
     // instantiate GUI
     var playControls = new PlayControls(canvasCtx);
@@ -146,26 +150,25 @@ function AudioCanvas() {
 
     // hook up GUI to scroll thru viz types and their parms
     this.centerControl.addClient('Spectrum', function (client) {
+        audioManager.doFreqDomain();
         currentVizMethod = displaySpectrum;
     });
 
     this.centerControl.addClient('Lissajous', function(client) {
+        audioManager.doTimeDomain();
         currentVizMethod = displayLissajousScript;
     });
 
     this.centerControl.addClient('Oscilloscope', function(client) {
+        audioManager.doTimeDomain();
         currentVizMethod = displayOscilloscope;
     });
 
+    // depends on clients above
+    audioManager.addControls();
 
-    // instantiate audio manager
-    var audioManager = new AudioManager(this);
-    audioManager.realTimeInfo.canvasCtx = canvasCtx;
-    audioManager.realTimeInfo.scopeTriggerLevel = 0;
-
-
-
-
+    // we are done adding controls, set startup controls
+    this.centerControl.startup('Spectrum', 'noiseFloor');
 
     // called by audio manager when audio stops (sometimes)
     this.playEnded = function () {

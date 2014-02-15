@@ -16,8 +16,6 @@ Author: Brian Gunnison (bgunnison@gmail.com)
 
 "use strict";
 
-// script processor goes out of scope and stops
-var stereo = null;
 
 // created by the canvas, does everything to play audio and capture 
 // realtime info for visualization
@@ -35,8 +33,9 @@ function AudioManager(canvasManager) {
     var defaultNoiseFloor = -110;
     var noiseFloorMax = -90;
     var noiseFloorMin = -140;
-    var fftLengths = [1024, 2048];
-    var defaultFftLength = fftLengths[1];
+    // power of two in the range 32 to 2048
+    var fftLengths = [512, 1024, 2048];
+    var defaultFftLength = fftLengths[2];
 
     // used via central control to set gain
     // big enough so no zipper noise
@@ -119,15 +118,157 @@ function AudioManager(canvasManager) {
         canvasManager.canvasShowLog();
     }
 
-    // connects audio for your listening pleasure
-    function audioGraphConnect() {
-        if (audioGraphInfo.audioSource == null) {
-            canvasManager.fatalError('Cannot connect - audio source is null');
+
+    // database of Web audio nodes and their configuration
+    var audioGraphInfo = {};
+    audioGraphInfo.nodes = {};
+    audioGraphInfo.microphone = false;
+
+    // create the audio graph nodes
+    // kindof overkill, but nodes may have more than one output
+    // and we can label our graph connections this way
+    // nodes are named as you like
+    function audioGraphCreate() {
+
+        // the source
+        var node = {};
+        node.node = null;   // audio source can come from various inputs
+        node.outputs = [];
+        audioGraphInfo.nodes['Source'] = node;
+
+        node = {};
+        node.node = audioContext.createGain();
+        node.node.gain.value = defaultGuiMasterGain/guiMasterGainMaxRange;
+        node.outputs = [];
+        node.inputs = [];
+        audioGraphInfo.nodes['Master Gain'] = node;
+
+        // one spectrum display for now
+        node = {};
+        node.node = audioContext.createAnalyser(defaultFftLength);
+        node.outputs = [];
+        node.inputs = [];
+        node.fftLength = defaultFftLength;
+        node.node.DefaultSmoothingTimeConstant = defaultSmoothingTimeConstant;
+        node.node.minDecibels = defaultNoiseFloor; //-110;
+        that.realTimeInfo.analyser = node.node;
+        audioGraphInfo.nodes['Spectrum'] = node;
+
+        // We can see float data of both channels
+        // Looks like this must have an output channel and it must be attached to destination
+        // so we use a gain node set to 0
+        node = {};
+        node.node = audioContext.createScriptProcessor(defaultScriptProcessorSize, 2, 2);
+        node.outputs = [];
+        node.inputs = [];
+        // we have two async loops, animate at frame rate and audio process at sample rate/buffer size rate
+        // we can animate at audio rate, but this does not use requestAnimationFrame,
+        // which is friendlier say if the canvas is in the background
+        // so we do a copy of the realtime data in the callback
+        node.node.onaudioprocess = audioCaptureTimeDomain;
+        audioGraphInfo.nodes['Audio Data'] = node;
+
+        // script processor node needs to go somewhere to process
+        node = {};
+        node.node = audioContext.createGain();
+        node.node.gain.value = 0;
+        node.outputs = [];
+        node.inputs = [];
+        audioGraphInfo.nodes['Zero Gain'] = node;
+
+        // disconnect disconnects all output connections
+        // So to switch between audio data and spectrum (to save real time)
+        // we attach Source to a gain node at max gain and that gain node to the viz
+        // nodes as needed
+        node = {};
+        node.node = audioContext.createGain();
+        node.node.gain.value = 1.0;
+        node.outputs = [];
+        node.inputs = [];
+        audioGraphInfo.nodes['Viz Gain'] = node;
+
+        // speakers
+        node = {};
+        node.node = audioContext.destination;
+        node.inputs = [];
+        audioGraphInfo.nodes['Speakers'] = node;
+
+        canvasManager.canvasLog('Audio nodes created');
+    }
+
+
+
+    function audioNodeConnect(from, to) {
+        var f = audioGraphInfo.nodes[from];
+        var t = audioGraphInfo.nodes[to];
+
+        if (!f || !t) {
+            console.log('Unknown node name: ' + from + ' or ' + to);
             return;
         }
 
-        audioGraphInfo.audioSource.connect(audioGraphInfo.masterGain);
-        audioGraphInfo.masterGain.connect(audioContext.destination);
+        if (!f.outputs) {
+            console.log('Node ' + from + ' has no output capability');
+            return;
+        }
+
+        if (!t.inputs) {
+            console.log('Node ' + to + ' has no input capability');
+            return;
+        }
+
+        if (f.outputs.indexOf(to) >= 0) {
+            //console.log('Node ' + from + ' is already connected to ' + to);
+            return;
+        }
+
+        f.node.connect(t.node);
+        f.outputs.push(to);
+        t.inputs.push(from);
+    }
+
+
+    function audioNodeDisconnect(from, to) {
+        var f = audioGraphInfo.nodes[from];
+        var t = audioGraphInfo.nodes[to];
+
+        if (!f || !t) {
+            console.log('Unknown node name: ' + from + ' or ' + to);
+            return;
+        }
+
+        if (!f.outputs) {
+            console.log('Node ' + from + ' has no outputs');
+            return;
+        }
+
+        var outputIndex = f.outputs.indexOf(to);
+
+        if ( outputIndex < 0) {
+            //console.log('Node ' + from + ' is not connected to ' + to);
+            return;
+        }
+
+        // disconnects all
+        f.node.disconnect();
+        f.outputs.splice(to, 1);
+        t.inputs.splice(from, 1);
+        // simply reconnect
+        for (var i = 0; i < f.outputs.length; i++) {
+            audioNodeConnect(from, f.outputs[i])
+        }
+    }
+
+    // connects audio for your listening pleasure
+    function audioGraphConnect() {
+        if (audioGraphInfo.nodes['Source'].node == null) {
+            canvasManager.fatalError('Cannot connect - audio source unavailable');
+            return;
+        }
+
+        audioNodeConnect('Source',      'Master Gain');
+        audioNodeConnect('Source',      'Viz Gain');
+        audioNodeConnect('Master Gain', 'Speakers');
 
         canvasManager.canvasLog('Audio connected');
         that.audioState = 'connected';
@@ -147,16 +288,37 @@ function AudioManager(canvasManager) {
     }
 
     // connects audio for your viewing pleasure
-    function audioVizGraphConnect() {
-        if (audioGraphInfo.audioSource == null) {
-            canvasManager.fatalError('cannot connect - audio source is null');
-            return;
+    function audioVizGraph(action, graph) {
+
+        if (action === 'connect') {
+            if (graph === 'Audio Data') {
+                audioNodeConnect('Viz Gain',    'Audio Data');
+                audioNodeConnect('Audio Data',  'Zero Gain');
+                audioNodeConnect('Zero Gain',   'Speakers');
+                // buffers from script thread are copied to here to be sampled by animation thread
+                that.realTimeInfo.ldata = new Float32Array(audioGraphInfo.nodes['Audio Data'].node.bufferSize);
+                that.realTimeInfo.rdata = new Float32Array(audioGraphInfo.nodes['Audio Data'].node.bufferSize);
+            }
+
+            if (graph === 'Spectrum') {
+                audioNodeConnect('Viz Gain',      'Spectrum');
+            }
         }
 
-        audioGraphInfo.audioSource.connect(audioGraphInfo.analyser);
-        audioGraphInfo.audioSource.connect(audioGraphInfo.stereoTimeDomainNode);
-        audioGraphInfo.stereoTimeDomainNode.connect(audioGraphInfo.blackHoleGain);
-        audioGraphInfo.blackHoleGain.connect(audioContext.destination);
+        if (action === 'disconnect') {
+            if (graph === 'Audio Data') {
+                // always disconnect speakers first so to not glitch (We are LIVE!)
+                audioNodeDisconnect('Zero Gain',    'Speakers');
+                audioNodeDisconnect('Audio Data',   'Zero Gain');
+                audioNodeDisconnect('Viz Gain',       'Audio Data');
+                that.realTimeInfo.ldata = null;
+                that.realTimeInfo.rdata = null;
+            }
+
+            if (graph === 'Spectrum') {
+                audioNodeDisconnect('Viz Gain',      'Spectrum');
+            }
+        }
     }
 
 
@@ -169,10 +331,10 @@ function AudioManager(canvasManager) {
         canvasManager.canvasLog('Audio decoded');
         that.audioState = 'decoded';
 
-        audioGraphInfo.audioSource = audioContext.createBufferSource();
-        audioGraphInfo.audioSource.buffer = buffer;
+        audioGraphInfo.nodes['Source'].node = audioContext.createBufferSource();
+        audioGraphInfo.nodes['Source'].node.buffer = buffer;
 
-        audioVizGraphConnect();
+        audioVizGraph('connect', 'Spectrum');
         audioGraphConnect();
     }
 
@@ -202,21 +364,14 @@ function AudioManager(canvasManager) {
         }
     }
 
-    // database of Web audio nodes and their configuration
-    var audioGraphInfo = {};
-    audioGraphInfo.masterGainValue = defaultGuiMasterGain/guiMasterGainMaxRange;
-    audioGraphInfo.scriptProcessorSize = defaultScriptProcessorSize;
-    audioGraphInfo.smoothingTimeConstant = defaultSmoothingTimeConstant;
-    audioGraphInfo.minDecibels = defaultNoiseFloor;
-    audioGraphInfo.fftLength = defaultFftLength;
-    audioGraphInfo.microphone = false;
+
 
     function audioStartMicrophone(stream) {
-        audioGraphInfo.audioSource = audioContext.createMediaStreamSource(stream);
+        audioGraphInfo.nodes['Source'].node = audioContext.createMediaStreamSource(stream);
         audioGraphInfo.microphone = true;
         canvasManager.canvasLog('Audio microphone ready');
         that.audioState = 'loaded';
-        audioVizGraphConnect();
+        audioVizGraph('connect', 'Spectrum');
         audioGraphConnect();
     }
 
@@ -291,11 +446,12 @@ function AudioManager(canvasManager) {
             });
 
             audioStream.addEventListener('canplaythrough', function(e) {
-                audioGraphInfo.audioSource = audioContext.createMediaElementSource(audioStream);
+                audioGraphInfo.nodes['Source'].node = audioContext.createMediaElementSource(audioStream);
                 canvasManager.canvasLog('Audio stream ready');
                 that.audioState = 'loaded';
-                audioVizGraphConnect();
                 audioGraphConnect();
+                audioVizGraph('connect', 'Spectrum');
+
             });
 
             audioStream.addEventListener('ended', function () {
@@ -339,118 +495,123 @@ function AudioManager(canvasManager) {
 
     //
     // Audio GUI hooks
+    //
+
+    // sets up time domain data for visualization
+    this.doTimeDomain = function() {
+        audioVizGraph('disconnect', 'Spectrum');
+        audioVizGraph('connect', 'Audio Data');
+    }
+
+    // sets up freq domain data for visualization
+    this.doFreqDomain = function() {
+        audioVizGraph('disconnect', 'Audio Data');
+        audioVizGraph('connect', 'Spectrum');
+    }
+
     function changeMasterGainValue(parm) {
-        if (audioGraphInfo.masterGain) {
+        if (audioGraphInfo.nodes['Master Gain']) {
             var linearGain = parm.value/parm.maxRange;
             // human perception in general is logarithmic
             var expGain = (Math.exp(linearGain)-1)/(Math.E-1);
-            audioGraphInfo.masterGain.gain.value = expGain;
-            audioGraphInfo.masterGainValue = expGain;
+            audioGraphInfo.nodes['Master Gain'].node.gain.value = expGain;
             parm.cbTitle('Gain: ' + Math.round(expGain * 100) + ' %');
         }
     }
 
     function masterGainSelect(parm) {
-        parm.cbTitle('Gain: ' + Math.round( audioGraphInfo.masterGainValue * 100) + ' %');
+        parm.cbTitle('Gain: ' + Math.round( audioGraphInfo.nodes['Master Gain'].node.gain.value * 100) + ' %');
     }
 
     function audioSelect(client) {
        // nothing to do yet
     }
 
-    // canvas owns controls for now
-    canvasManager.centerControl.addClient('Audio', audioSelect);
-
-    canvasManager.centerControl.addClientParm(
-        'Audio',
-        'Gain',
-        defaultGuiMasterGain ,
-        guiMasterGainMaxRange ,
-        changeMasterGainValue,
-        masterGainSelect);
-
     function changeNoiseFloorValue(parm) {
-        if (audioGraphInfo.analyser) {
+        if (audioGraphInfo.nodes['Spectrum']) {
             var noiseFloor = noiseFloorMin + parm.value;
-            audioGraphInfo.analyser.minDecibels = noiseFloor;
-            audioGraphInfo.minDecibels = noiseFloor;
+            audioGraphInfo.nodes['Spectrum'].node.minDecibels = noiseFloor;
             parm.cbTitle('Noise floor: ' + noiseFloor + ' dB');
         }
     }
 
     function noiseFloorSelect(parm) {
-        parm.cbTitle('Noise floor: ' + audioGraphInfo.minDecibels + ' dB');
+        if (audioGraphInfo.nodes['Spectrum']) {
+            parm.cbTitle('Noise floor: ' + audioGraphInfo.nodes['Spectrum'].node.minDecibels + ' dB');
+        }
     }
 
-    // -140 to -90, range
-    //              -90             -140
-    var nfRange = noiseFloorMax - noiseFloorMin;
-    var nfgui = noiseFloorMax - audioGraphInfo.minDecibels;
+    function smoothingSelect(parm) {
+        if (audioGraphInfo.nodes['Spectrum']) {
+            parm.cbTitle('Smoothing: ' + audioGraphInfo.nodes['Spectrum'].node.smoothingTimeConstant.toFixed(2));
+        }
+    }
 
-    // make sure canvas has already added this client
-    canvasManager.centerControl.addClientParm(
-        'Spectrum',
-        'noiseFloor',
-        nfgui ,
-        nfRange ,
-        changeNoiseFloorValue,
-        noiseFloorSelect);
+    function changeSmoothingValue(parm) {
+        if (audioGraphInfo.nodes['Spectrum']) {
+            audioGraphInfo.nodes['Spectrum'].node.smoothingTimeConstant = parm.value/100;
+            parm.cbTitle('Smoothing: ' + audioGraphInfo.nodes['Spectrum'].node.smoothingTimeConstant.toFixed(2));
+        }
+    }
 
+    this.addControls = function() {
+
+        // canvas owns controls for now
+        canvasManager.centerControl.addClient('Audio', audioSelect);
+
+        canvasManager.centerControl.addClientParm(
+            'Audio',
+            'Gain',
+            defaultGuiMasterGain ,
+            guiMasterGainMaxRange ,
+            changeMasterGainValue,
+            masterGainSelect);
+
+        // -140 to -90, range
+        //              -90             -140
+        var nfRange = noiseFloorMax - noiseFloorMin;
+        var nfgui = noiseFloorMax - audioGraphInfo.nodes['Spectrum'].node.minDecibels;
+
+        // make sure canvas has already added this client
+        canvasManager.centerControl.addClientParm(
+            'Spectrum',
+            'noiseFloor',
+            nfgui ,
+            nfRange ,
+            changeNoiseFloorValue,
+            noiseFloorSelect);
+
+        // make sure canvas has already added this client
+        canvasManager.centerControl.addClientParm(
+            'Spectrum',
+            'Smoothing',
+            100 * defaultSmoothingTimeConstant ,
+            100 * 0.8 ,
+            changeSmoothingValue,
+            smoothingSelect);
+    }
 
     // a database of all info needed by visualization
     this.realTimeInfo = {};
     // can't change this yet
     this.realTimeInfo.sampleRate = audioContext.sampleRate;
 
-    // create the audio graph for viewing
-    function audioVizGraphCreate() {
-        // buffers from script thread are copied to here to be sampled by animation thread
-        that.realTimeInfo.ldata = new Float32Array(audioGraphInfo.scriptProcessorSize);
-        that.realTimeInfo.rdata = new Float32Array(audioGraphInfo.scriptProcessorSize);
 
-        // one spectrum display for now
-        audioGraphInfo.analyser = audioContext.createAnalyser(audioGraphInfo.fftLength);
-        audioGraphInfo.analyser.DefaultSmoothingTimeConstant = audioGraphInfo.smoothingTimeConstant;
-        audioGraphInfo.analyser.minDecibels = audioGraphInfo.minDecibels; //-110;
-        that.realTimeInfo.analyser = audioGraphInfo.analyser;
-
-        // We can see float data of both channels 
-        // Looks like this must have an output channel and it must be attached to destination
-        // so we use a gain node set to 0
-        audioGraphInfo.stereoTimeDomainNode = audioContext.createScriptProcessor(audioGraphInfo.scriptProcessorSize, 2, 2);
-
-        // we have two async loops, animate at frame rate and audio process at sample rate/buffer size rate
-        // we can animate at audio rate, but this does not use requestAnimationFrame,
-        // which is friendlier say if the canvas is in the background
-        // so we do a copy of the realtime data
-        audioGraphInfo.stereoTimeDomainNode.onaudioprocess = audioCaptureTimeDomain;
-
-        // script processor node needs to go somewhere to process
-        audioGraphInfo.blackHoleGain = audioContext.createGain();
-        audioGraphInfo.blackHoleGain.gain.value = 0;
-
-        canvasManager.canvasLog('Visualization nodes created');
-    }
-    
-
-    // create the audio graph for listening
-    function audioGraphCreate() {
-
-        audioGraphInfo.masterGain = audioContext.createGain();
-        audioGraphInfo.masterGain.gain.value = audioGraphInfo.masterGainValue;
-
-        canvasManager.canvasLog('Audio nodes created');
-    }
-   
-
+    // realtime callback from script node.
+    // add a ping pong buffer later
     function audioCaptureTimeDomain(event) {
+
+        if (that.realTimeInfo.ldata == null || that.realTimeInfo.rdata == null) {
+            return;
+        }
+
         // these values are only valid in the scope of the onaudioprocess event
         var ldata = event.inputBuffer.getChannelData(0);
         var rdata = event.inputBuffer.getChannelData(1);
 
         // have to copy here as the buffers are potentially undefined outside this event
         // be nice to use splice...
-        for (var i = 0; i < audioGraphInfo.scriptProcessorSize; i++) {
+        for (var i = 0; i < audioGraphInfo.nodes['Audio Data'].node.bufferSize; i++) {
             that.realTimeInfo.ldata[i] = ldata[i];
             that.realTimeInfo.rdata[i] = rdata[i];
         }
@@ -458,7 +619,6 @@ function AudioManager(canvasManager) {
 
     // start ball rolling
     audioGraphCreate();
-    audioVizGraphCreate();
     audioLoad();
 }
 

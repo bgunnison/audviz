@@ -40,21 +40,18 @@ Brian Gunnison (bgunnison@gmail.com)
 
     <div> <canvas id="viz_canvas1" class="viz_canvas" width="512" height="400"> </canvas> </div>
 
-    <div id="center_control_vis" style="visibility:hidden; position:absolute; left:0px; top:0px; z-index: 10;">
-        <input type="text" id="aud_center_control" class="dial" value="500">
-       <!--
-       <div id="rarrow" class="arrow-right" style="position:absolute; left:0em; top:0em;"></div>
-       <div id="larrow" class="arrow-left"  style="position:absolute; left:0em; top:0em;"></div>
-       -->
-       <div id="center_control_title" style="position:absolute; margin-top: 0px; width:100%; text-align:center; color:#a0a0a0">
-           <h1 id="center_control_title_text">Hello</h1>
-       </div>
 
+
+    <div id="center_control_vis" style="visibility:hidden; position:absolute; left:0px; top:0px; z-index: 10;">
+        <div id="center_control_title" style="text-align:center; color:#a0a0a0; font-family: 'Audiowide', sans-serif;">
+            <h1 id="center_control_title_text">Hello</h1>
+        </div>
+        <input type="text" id="aud_center_control" class="dial" value="500">
     </div>
 
         <div id="viz_selectors" style="position:absolute; left:0px; top:0px; z-index: 10;">
             <div class="u-inline-left"><p id='viz_left_arrow' class="inline-left btn1"><a href="#">&#60</a></p></div>
-            <div class="u-inline" style="width: 170px;"><p id='viz_title_arrow' class="inline btn3"><a href="#">Hello</a></p></div>
+            <div class="u-inline" style="width: 170px;"><p id='viz_center_button' class="inline btn3"><a href="#">Hello</a></p></div>
             <div class="u-inline-right"><p id='viz_right_arrow' class="inline-right btn1"><a href="#">&#62</a></p></div>
         </div>
 
