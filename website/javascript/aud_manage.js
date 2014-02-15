@@ -51,7 +51,7 @@ function AudioManager(canvasManager) {
     }
 
     // set for test on desktop
-    iOS = true;
+    //iOS = true;
 
     var audioContext = null;
 
