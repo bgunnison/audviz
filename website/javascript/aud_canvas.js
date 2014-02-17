@@ -176,26 +176,33 @@ function AudioCanvas() {
     this.playEnded = function () {
         this.clearCanvas();
         this.canvasLog('Play end');
-        this.canvasLog('Peak anim: ' + rtData.AnimPeak.toFixed(4));
-        var ave = rtData.AnimTotal / rtData.AnimCount;
-        this.canvasLog('Ave anim: ' + ave.toFixed(4));
+        console.log('Peak anim: ' + rtData.animPeak.toFixed(4));
+        var ave = rtData.animTotal / rtData.animCount;
+        console.log('Ave anim: ' + ave.toFixed(4));
+        console.log('Buffer overruns:  ' + audioManager.realTimeInfo.audioBuffersOverRun);
+        console.log('Buffer underruns: ' + audioManager.realTimeInfo.audioBuffersUnderRun);
         this.canvasShowLog();
     }
 
     // gather some real-time data
     var rtData = {
-        AnimCount: 0,
-        AnimTotal: 0,
-        AnimPeak: 0
+        animCount: 0,
+        animTotal: 0,
+        animPeak: 0
     };
 
     function rtAnimationMeasure(start) {
+
+        // this can run faster than we get new audio data
+        // we could save some realtime if we only animate a bit faster
+        // than the new data, but thats on faster platforms
+        // on mobile its much slower so it doesn't matter.
         var dur = audioManager.currentTime() - start;
-        if (dur > rtData.AnimPeak) {
-            rtData.AnimPeak = dur;
+        if (dur > rtData.animPeak) {
+            rtData.animPeak = dur;
         }
-        rtData.AnimCount++;
-        rtData.AnimTotal += dur;
+        rtData.animCount++;
+        rtData.animTotal += dur;
     }
 
     // main animation loop

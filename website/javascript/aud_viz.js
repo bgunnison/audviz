@@ -120,14 +120,46 @@ function displaySpectrum(realTimeInfo) {
     canvasCtx.restore();
 }
 
+function getAudioData(realTimeInfo) {
+    if (realTimeInfo.audioData == null) {
+        return null;
+    }
+
+    var iBuf = -1;
+    for (var i = 0; i < realTimeInfo.audioData.length; i++) {
+        if ( realTimeInfo.audioData[i].consumed == false) {
+            iBuf = i;
+            break;
+        }
+    }
+
+    // we expect audio to be faster than display, but maybe not.
+    // so what to do if no new buffers to display?
+    // display old ones else we get blank graphics.
+    if (iBuf == -1) {
+        realTimeInfo.audioBuffersUnderRun++;
+        iBuf = 0;
+    }
+
+    var ldata = realTimeInfo.audioData[iBuf].ldata;
+    var rdata = realTimeInfo.audioData[iBuf].rdata;
+
+    return [rdata, ldata, iBuf];
+}
 
 var peakVolScript = .001;
 
 function displayLissajousScript(realTimeInfo) {
 
     var canvasCtx = realTimeInfo.canvasCtx;
-    var ldata = realTimeInfo.ldata;
-    var rdata = realTimeInfo.rdata;
+
+    var audioData = getAudioData(realTimeInfo);
+    if (audioData == null) {
+        return;
+    }
+
+    var ldata = audioData[1];
+    var rdata = audioData[0];
 
     var xc = canvasCtx.canvas.width/2;
     var yc = canvasCtx.canvas.height/2;
@@ -173,31 +205,24 @@ function displayLissajousScript(realTimeInfo) {
     }
 
     canvasCtx.restore();
+    realTimeInfo.audioData[audioData[2]].consumed = true;
 }
 
 // We AGC the peak display
 var peakVolScope = .001;
 
-function drawScope(realTimeInfo, channel, hue) {
-    var xPix = realTimeInfo.canvasCtx.canvas.width;
-    var yPixh = realTimeInfo.canvasCtx.canvas.height / 2;
+function drawScope(canvasCtx, dataBuf, hue) {
+    var xPix = canvasCtx.canvas.width;
+    var yPixh = canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
     var lcolor = 'hsla(' + hue + ', 100%,50%, 0.8)';
 
-    realTimeInfo.canvasCtx.strokeStyle = lcolor;
+    canvasCtx.strokeStyle = lcolor;
 
     hue += 10;
-    realTimeInfo.canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
+    canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
 
-    realTimeInfo.canvasCtx.beginPath();
-
-    if (channel == 0) {
-        var dataBuf = realTimeInfo.ldata;
-    }
-
-    if (channel == 1) {
-        var dataBuf = realTimeInfo.rdata;
-    }
+    canvasCtx.beginPath();
 
     var skip = 0;
     var skipInc = xPix / dataBuf.length;
@@ -214,13 +239,11 @@ function drawScope(realTimeInfo, channel, hue) {
         if (x == x1) {
             // average the two samples
             var ave = (ldf + ldt)/2;
-            ldf = ave;
             ldt = ave;
-            //console.log(x, ldf)
         }
 
-        realTimeInfo.canvasCtx.moveTo(x, ldf);
-        realTimeInfo.canvasCtx.lineTo(x1, ldt);
+        canvasCtx.moveTo(x, ldf);
+        canvasCtx.lineTo(x1, ldt);
 
         ldf = ldt;
 
@@ -229,24 +252,24 @@ function drawScope(realTimeInfo, channel, hue) {
         }
     }
 
-    realTimeInfo.canvasCtx.stroke();
+    canvasCtx.stroke();
 }
 
 
 function displayOscilloscope(realTimeInfo) {
 
-    if(realTimeInfo.ldata.length < 32) {
+    var audioData = getAudioData(realTimeInfo);
+    if (audioData == null) {
         return;
     }
 
     realTimeInfo.canvasCtx.save();
-
     realTimeInfo.canvasCtx.shadowBlur = 30;
     realTimeInfo.canvasCtx.lineWidth = 3;
     realTimeInfo.canvasCtx.lineJoin = 'round';
     //canvasCtx.strokeStyle = gradient;
-    drawScope(realTimeInfo, 0, 200);
-    drawScope(realTimeInfo, 1, 100);
-
+    drawScope(realTimeInfo.canvasCtx, audioData[0], 200);
+    drawScope(realTimeInfo.canvasCtx, audioData[1], 100);
     realTimeInfo.canvasCtx.restore();
+    realTimeInfo.audioData[audioData[2]].consumed = true;
 }

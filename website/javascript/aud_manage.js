@@ -287,6 +287,20 @@ function AudioManager(canvasManager) {
         }
     }
 
+    function createRealtimeAudioBuffers() {
+        // buffers from script thread are copied to here to be sampled by animation thread
+        // create four buffers (ping pong stereo)
+        var bufs = [];
+        for (var i = 0; i < 4; i++) {
+            bufs.push(new Float32Array(audioGraphInfo.nodes['Audio Data'].node.bufferSize));
+        }
+
+        that.realTimeInfo.audioData = [
+            {realTime: 0.0, consumed: true, ldata: bufs[0], rdata: bufs[1]},
+            {realTime: 0.0, consumed: true, ldata: bufs[2], rdata: bufs[3]}
+            ];
+    }
+
     // connects audio for your viewing pleasure
     function audioVizGraph(action, graph) {
 
@@ -295,9 +309,7 @@ function AudioManager(canvasManager) {
                 audioNodeConnect('Viz Gain',    'Audio Data');
                 audioNodeConnect('Audio Data',  'Zero Gain');
                 audioNodeConnect('Zero Gain',   'Speakers');
-                // buffers from script thread are copied to here to be sampled by animation thread
-                that.realTimeInfo.ldata = new Float32Array(audioGraphInfo.nodes['Audio Data'].node.bufferSize);
-                that.realTimeInfo.rdata = new Float32Array(audioGraphInfo.nodes['Audio Data'].node.bufferSize);
+                createRealtimeAudioBuffers();
             }
 
             if (graph === 'Spectrum') {
@@ -311,8 +323,7 @@ function AudioManager(canvasManager) {
                 audioNodeDisconnect('Zero Gain',    'Speakers');
                 audioNodeDisconnect('Audio Data',   'Zero Gain');
                 audioNodeDisconnect('Viz Gain',       'Audio Data');
-                that.realTimeInfo.ldata = null;
-                that.realTimeInfo.rdata = null;
+                that.realTimeInfo.audioData = null;
             }
 
             if (graph === 'Spectrum') {
@@ -595,26 +606,51 @@ function AudioManager(canvasManager) {
     this.realTimeInfo = {};
     // can't change this yet
     this.realTimeInfo.sampleRate = audioContext.sampleRate;
-
+    this.realTimeInfo.audioBuffersOverRun = 0;
+    this.realTimeInfo.audioBuffersUnderRun = 0;
 
     // realtime callback from script node.
-    // add a ping pong buffer later
+    // ping pong buffers
     function audioCaptureTimeDomain(event) {
 
-        if (that.realTimeInfo.ldata == null || that.realTimeInfo.rdata == null) {
+        if (that.realTimeInfo.audioData == null) {
             return;
         }
 
-        // these values are only valid in the scope of the onaudioprocess event
-        var ldata = event.inputBuffer.getChannelData(0);
-        var rdata = event.inputBuffer.getChannelData(1);
+        // these values are only valid in the scope of the onaudioprocess (this) event
+        var fldata = event.inputBuffer.getChannelData(0);
+        var frdata = event.inputBuffer.getChannelData(1);
+
+        // if first buffers are consumed copy into those
+        // else if second is consumed copy into those
+        // if both buffers are not consumed drop the data on the floor
+        // as we want the display to sync with what is playing
+        var iBuf = -1;
+
+        for (var i = 0; i < that.realTimeInfo.audioData.length; i++) {
+            if ( that.realTimeInfo.audioData[i].consumed == true) {
+                iBuf = i;
+                break;
+            }
+        }
+
+        if (iBuf == -1) {
+            that.realTimeInfo.audioBuffersOverRun++;
+            return;
+        }
+
+        that.realTimeInfo.audioData[iBuf].realTime = audioContext.currentTime;
+        var tldata = that.realTimeInfo.audioData[iBuf].ldata;
+        var trdata = that.realTimeInfo.audioData[iBuf].rdata;
 
         // have to copy here as the buffers are potentially undefined outside this event
         // be nice to use splice...
-        for (var i = 0; i < audioGraphInfo.nodes['Audio Data'].node.bufferSize; i++) {
-            that.realTimeInfo.ldata[i] = ldata[i];
-            that.realTimeInfo.rdata[i] = rdata[i];
+        for (i = 0; i < audioGraphInfo.nodes['Audio Data'].node.bufferSize; i++) {
+            tldata[i] = fldata[i];
+            trdata[i] = frdata[i];
         }
+
+        that.realTimeInfo.audioData[iBuf].consumed = false;
     }
 
     // start ball rolling

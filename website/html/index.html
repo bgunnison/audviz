@@ -36,12 +36,12 @@ Brian Gunnison (bgunnison@gmail.com)
 	font-size: 36px;
     font-family: 'Audiowide', sans-serif;
     }
-        .auto-style1
-        {
-            font-size: xx-large;
-        }
+
+    .clickable { cursor: pointer; }
+
+
         </style>
-    
+
     <meta charset="utf-8">
     <script src="../javascript/aud_bkgnd.js"></script>
     </head>
@@ -49,10 +49,9 @@ Brian Gunnison (bgunnison@gmail.com)
     <body class="body">
     <script>
         function PlayAud(fileToPlay) {
-            console.log(fileToPlay);
+            //console.log(fileToPlay);
             localStorage.setItem('audToPlay', fileToPlay);
             window.location = 'audviz.html';
-            //window.open('audviz.html');
         }
 
     </script>
@@ -64,7 +63,7 @@ Brian Gunnison (bgunnison@gmail.com)
      
     <strong><span class="auto-style1">Select the sound you want to visualize:</span></strong>
       </div>        
-    <div id="aud_select" style="position: absolute; left: 39px; top: 142px; z-index: 10; width: 1217px; height: 837px;">
+    <div style="position: absolute; left: 39px; top: 142px; z-index: 10; width: 1217px; height: 837px;">
   
         <input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button"><br />
         <br />
