@@ -20,14 +20,13 @@
 // a database of center control config
 var centerControlConfig = {
     div_id:             'center_control_vis',
-    title_id:           'center_control_title_text',
-    larrow_div:         'larrow',
-    rarrow_div:         'rarrow',
+    title_id:           'center_control_title',
     visibility:         'hidden',    // we start hidden
-    height:             300,
-    width:              300,
+    height:             400,
+    width:              400,
     max_range:          1000,
     fgColor:            'blue',
+    shadowColor:        '#ADF3FF',
     defaultValue:       500,
     timeOutHide:        5000
 };
@@ -47,6 +46,53 @@ function CenterControl(canvasCtx) {
     this.centralControlId = document.getElementById(centerControlConfig.div_id);
     var isVisible = false;
 
+
+    //overload draw function for knob 
+    function drawKnob() {
+        var a = this.angle(this.cv)  // Angle
+        , sa = this.startAngle          // Previous start angle
+        , sat = this.startAngle         // Start angle
+        , ea                            // Previous end angle
+        , eat = sat + a                 // End angle
+        , r = true;
+
+        this.g.shadowColor = centerControlConfig.shadowColor;
+        this.g.shadowBlur = 35;
+        this.g.shadowOffsetX = 0;
+        this.g.shadowOffsetY = 0;
+
+        this.g.lineWidth = this.lineWidth;
+
+        this.o.cursor
+        && (sat = eat - 0.3)
+        && (eat = eat + 0.3);
+
+        if (this.o.displayPrevious) {
+            ea = this.startAngle + this.angle(this.value);
+            this.o.cursor
+            && (sa = ea - 0.3)
+            && (ea = ea + 0.3);
+            this.g.beginPath();
+            this.g.strokeStyle = this.previousColor;
+            this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sa, ea, false);
+            this.g.stroke();
+        }
+
+        this.g.beginPath();
+        this.g.strokeStyle = r ? this.o.fgColor : this.fgColor;
+        this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sat, eat, false);
+        this.g.stroke();
+
+        this.g.lineWidth = 3;
+        this.g.beginPath();
+        this.g.strokeStyle = this.o.fgColor;
+        this.g.arc(this.xy, this.xy, this.radius - this.lineWidth + 1 + this.lineWidth * 2 / 3, 0, 2 * Math.PI, false);
+        this.g.stroke();
+
+        return false;
+    }
+
+
     function Init() {
         console.log('Control init');
 
@@ -59,13 +105,14 @@ function CenterControl(canvasCtx) {
             'height':       centerControlConfig.height,
             'fgColor':      centerControlConfig.fgColor,
             'dynamicDraw':  true,
-            'thickness':    0.35,
+            'thickness':    0.30,
             'skin':         'tron',
-            'lineCap':      'round',
+            //'lineCap':      'round',
             'displayInput': false,
             'angleOffset':  -145,
             'angleArc':     290,
-            change:         centralControlChangedParmValue
+            change:         centralControlChangedParmValue,
+            draw:           drawKnob
         });
 
         document.getElementById(vizControlConfig.selectLeft).onclick = clientLeftArrowClick;
@@ -204,20 +251,6 @@ function CenterControl(canvasCtx) {
         $('.dial').val(value).trigger('change');
     }
 
-    function parmRightArrowClick() {
-        var clientName = clients.list[clients.current];
-        var client = clients[clientName];
-
-        if (client.parms.list.length == 0) {
-            return;
-        }
-        client.parms.current++;
-        if (client.parms.current >= client.parms.list.length) {
-            client.parms.current = 0;
-        }
-        centralControlSelect(client.parms[client.parms.list[client.parms.current]]);
-    }
-
     function nextParmClick() {
         var clientName = clients.list[clients.current];
         var client = clients[clientName];
@@ -287,11 +320,13 @@ function CenterControl(canvasCtx) {
         this.centralControlId.style.marginTop = tPos;
 
         //var ti = document.getElementById(centerControlConfig.title_id);
-        //ti.style.marginTop = ccVert + 'px';
+       // ti.style.marginTop = tPos;
 
         var sb = document.getElementById(vizControlConfig.div_id);
         sb.style.marginLeft =  ccHoriz - sb.offsetWidth / 2 + 'px';
         sb.style.marginTop =  ccVert + (this.canvasCtx.canvas.height / 2) + 5 +  'px';
+
+        sb.style.visibility = 'visible';
     }
 
     var controlTimeoutObj = null;
@@ -322,7 +357,6 @@ function CenterControl(canvasCtx) {
      function makeHidden() {
         $(that.centralControlId).fadeOut('slow','swing');
          isVisible = false;
-        //this.centralControlId.style.visibility = 'hidden';
     }
 
     this.toggleVisible = function() {
@@ -333,96 +367,11 @@ function CenterControl(canvasCtx) {
         }
     }
 
-    /*
-    // displays an image on the canvas
-    function LoadImage(imageURL, images) {
-        var imageObj = new Image();
-        imageObj.onload = function() {
-            images.push(this);
-        };
-
-        imageObj.src = imageURL;
-    }
-
-    var touchPanelImages = [];
-    function TouchPanelInit() {
-        LoadImage('../art/fporig.png',touchPanelImages)
-    }
-
-    this.draw = function() {
-
-        // keep visible always for now,
-        // implement visible when user touches canvas, then have it fade off after no use
-        if (true) {
-            var img = touchPanelImages[0];
-            if (img) {
-                var width = 50;
-                // proportional
-                var height = img.height * (width/img.width);
-                var x = this.canvasCtx.canvas.width - width;
-                this.canvasCtx.save();
-                this.canvasCtx.globalAlpha = 0.7;
-                this.canvasCtx.drawImage(img,
-                    0,      //sx
-                    0,      //sy
-                    img.width,      //swidth
-                    img.height,      //sheight
-                    x,      //x
-                    0,      //y
-                    width,    //width
-                    height);   //height
-
-                this.canvasCtx.restore();
-            }
-        }
-    }
-    */
-
     Init();
     makeHidden();
     this.centerOnCanvas();
-    //TouchPanelInit();
 }
 
-/* overload draw function for knob someday
- var a = this.angle(this.cv)  // Angle
- , sa = this.startAngle          // Previous start angle
- , sat = this.startAngle         // Start angle
- , ea                            // Previous end angle
- , eat = sat + a                 // End angle
- , r = true;
-
- this.g.lineWidth = this.lineWidth;
-
- this.o.cursor
- && (sat = eat - 0.3)
- && (eat = eat + 0.3);
-
- if (this.o.displayPrevious) {
- ea = this.startAngle + this.angle(this.value);
- this.o.cursor
- && (sa = ea - 0.3)
- && (ea = ea + 0.3);
- this.g.beginPath();
- this.g.strokeStyle = this.previousColor;
- this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sa, ea, false);
- this.g.stroke();
- }
-
- this.g.beginPath();
- this.g.strokeStyle = r ? this.o.fgColor : this.fgColor ;
- this.g.arc(this.xy, this.xy, this.radius - this.lineWidth, sat, eat, false);
- this.g.stroke();
-
- this.g.lineWidth = 2;
- this.g.beginPath();
- this.g.strokeStyle = this.o.fgColor;
- this.g.arc(this.xy, this.xy, this.radius - this.lineWidth + 1 + this.lineWidth * 2 / 3, 0, 2 * Math.PI, false);
- this.g.stroke();
-
- return false;
- }
- */
 
 // implements a canvas based play, pause control
 // also exports basic shapes
@@ -517,5 +466,50 @@ function PlayControls(ctx) {
         this.ctx.restore();
     }
 }
+
+/*
+   // displays an image on the canvas
+   function LoadImage(imageURL, images) {
+       var imageObj = new Image();
+       imageObj.onload = function() {
+           images.push(this);
+       };
+
+       imageObj.src = imageURL;
+   }
+
+   var touchPanelImages = [];
+   function TouchPanelInit() {
+       LoadImage('../art/fporig.png',touchPanelImages)
+   }
+
+   this.draw = function() {
+
+       // keep visible always for now,
+       // implement visible when user touches canvas, then have it fade off after no use
+       if (true) {
+           var img = touchPanelImages[0];
+           if (img) {
+               var width = 50;
+               // proportional
+               var height = img.height * (width/img.width);
+               var x = this.canvasCtx.canvas.width - width;
+               this.canvasCtx.save();
+               this.canvasCtx.globalAlpha = 0.7;
+               this.canvasCtx.drawImage(img,
+                   0,      //sx
+                   0,      //sy
+                   img.width,      //swidth
+                   img.height,      //sheight
+                   x,      //x
+                   0,      //y
+                   width,    //width
+                   height);   //height
+
+               this.canvasCtx.restore();
+           }
+       }
+   }
+   */
 
 

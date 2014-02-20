@@ -142,7 +142,8 @@ function AudioCanvas() {
     // instantiate audio manager
     var audioManager = new AudioManager(this);
     audioManager.realTimeInfo.canvasCtx = canvasCtx;
-    audioManager.realTimeInfo.scopeTriggerLevel = 0;
+    audioManager.realTimeInfo.zeroCrossingSamples = 0;
+    audioManager.realTimeInfo.scopeTriggerLevel = 0.0;
 
     // instantiate GUI
     var playControls = new PlayControls(canvasCtx);
@@ -165,6 +166,45 @@ function AudioCanvas() {
         audioManager.doTimeDomain();
         currentVizMethod = displayOscilloscope;
     });
+
+    function scopeTriggerLevelSelect(parm) {
+        parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(4));
+    }
+
+    function changeScopeTriggerLevelValue(parm) {
+        audioManager.realTimeInfo.scopeTriggerLevel = parm.value / parm.maxRange;
+        parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(4));
+    }
+
+    // make sure canvas has already added this client
+    this.centerControl.addClientParm(
+        'Oscilloscope',
+        'triggerLevel',
+        0 ,
+        1000,
+        changeScopeTriggerLevelValue,
+        scopeTriggerLevelSelect);
+
+    /* not really useful
+    function zeroThresholdSelect(parm) {
+         parm.cbTitle('Zero Threshold: ' + audioManager.realTimeInfo.zeroCrossingSamples);
+    }
+
+    function changeZeroThresholdValue(parm) {
+        audioManager.realTimeInfo.zeroCrossingSamples = parm.value;
+        parm.cbTitle('Zero Threshold: ' + audioManager.realTimeInfo.zeroCrossingSamples);
+    }
+
+    // make sure canvas has already added this client
+    this.centerControl.addClientParm(
+        'Oscilloscope',
+        'zeroThreshold',
+        0 ,
+        100 ,
+        changeZeroThresholdValue,
+        zeroThresholdSelect);
+    */
+
 
     // depends on clients above
     audioManager.addControls();

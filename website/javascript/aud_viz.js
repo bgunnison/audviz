@@ -208,10 +208,47 @@ function displayLissajousScript(realTimeInfo) {
     realTimeInfo.audioData[audioData[2]].consumed = true;
 }
 
+
+// returns index into buf if ZC found
+// buf is +/- 1.0 floats
+// algorithm is N samples above and below 0.0
+// returns index at ZC
+function findZeroCrossing(zeroCrossSamples, dataBuf) {
+    if (zeroCrossSamples == 0) {
+        return 0;
+    }
+
+    var pCount = 0;
+    var nCount = 0;
+
+    // advance until we're zero or negative
+    for(var i = 0; i < dataBuf.length; i++) {
+        if (dataBuf[i] >= 0.0) {
+            pCount++;
+            if (nCount < zeroCrossSamples) {
+                nCount = 0;
+            }
+        } else {
+            nCount++;
+            if (pCount < zeroCrossSamples) {
+                pCount = 0;
+            }
+        }
+
+        if (nCount >= zeroCrossSamples && pCount >= zeroCrossSamples) {
+            return i -  zeroCrossSamples;
+        }
+    }
+
+    // show data even if we can't detect anything
+    return 0;
+}
+
+
 // We AGC the peak display
 var peakVolScope = .001;
 
-function drawScope(canvasCtx, dataBuf, hue) {
+function drawScope(canvasCtx, bufOffset, dataBuf, hue) {
     var xPix = canvasCtx.canvas.width;
     var yPixh = canvasCtx.canvas.height / 2;
     var scaler = yPixh / peakVolScope;
@@ -223,13 +260,13 @@ function drawScope(canvasCtx, dataBuf, hue) {
     canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
 
     canvasCtx.beginPath();
-
+    var dataLength = dataBuf.length - bufOffset;
     var skip = 0;
-    var skipInc = xPix / dataBuf.length;
-    var ldf = yPixh - Math.round(dataBuf[0] * scaler);
+    var skipInc = xPix / dataBuf.length; //dataLength;  leaves a gap, but keeps waveform stable with trigger
+    var ldf = yPixh - Math.round(dataBuf[bufOffset] * scaler);
     var triggered = false;
 
-    for (var d = 1; d < dataBuf.length; d++) {
+    for (var d = bufOffset + 1; d < dataBuf.length; d++) {
 
         var ldt = yPixh - Math.round(dataBuf[d] * scaler);
 
@@ -256,10 +293,43 @@ function drawScope(canvasCtx, dataBuf, hue) {
 }
 
 
+// returns index into buf if a sample > level found
+// buf is +/- 1.0 floats
+// returns index at level
+function findTriggerLevel(level, dataBuf) {
+    if (level == 0.0) {
+        return 0;
+    }
+
+    for(var i = 0; i < dataBuf.length; i++) {
+        if (dataBuf[i] >= level) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 function displayOscilloscope(realTimeInfo) {
 
     var audioData = getAudioData(realTimeInfo);
     if (audioData == null) {
+        return;
+    }
+
+    // favorite channel?
+   // var bufOffset = findZeroCrossing(realTimeInfo.zeroCrossingSamples, audioData[0]);
+   // if (bufOffset == 0) {
+    //    bufOffset = findZeroCrossing(realTimeInfo.zeroCrossingSamples, audioData[1]);
+    //}
+
+    //favorite channel?
+    var bufOffset = findTriggerLevel(realTimeInfo.scopeTriggerLevel, audioData[0]);
+    if (bufOffset == 0 || bufOffset == -1) {
+       bufOffset = findTriggerLevel(realTimeInfo.scopeTriggerLevel, audioData[1]);
+    }
+
+    if (bufOffset == -1) {
         return;
     }
 
@@ -268,8 +338,8 @@ function displayOscilloscope(realTimeInfo) {
     realTimeInfo.canvasCtx.lineWidth = 3;
     realTimeInfo.canvasCtx.lineJoin = 'round';
     //canvasCtx.strokeStyle = gradient;
-    drawScope(realTimeInfo.canvasCtx, audioData[0], 200);
-    drawScope(realTimeInfo.canvasCtx, audioData[1], 100);
+    drawScope(realTimeInfo.canvasCtx, bufOffset, audioData[0], 200);
+    drawScope(realTimeInfo.canvasCtx, bufOffset, audioData[1], 100);
     realTimeInfo.canvasCtx.restore();
     realTimeInfo.audioData[audioData[2]].consumed = true;
 }
