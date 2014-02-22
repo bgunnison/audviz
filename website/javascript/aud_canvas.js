@@ -144,6 +144,7 @@ function AudioCanvas() {
     audioManager.realTimeInfo.canvasCtx = canvasCtx;
     audioManager.realTimeInfo.zeroCrossingSamples = 0;
     audioManager.realTimeInfo.scopeTriggerLevel = 0.0;
+    audioManager.realTimeInfo.scopeAudioDataToDisplay = 1024;
 
     // instantiate GUI
     var playControls = new PlayControls(canvasCtx);
@@ -167,14 +168,24 @@ function AudioCanvas() {
         currentVizMethod = displayOscilloscope;
     });
 
-    function scopeTriggerLevelSelect(parm) {
-        parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(4));
-    }
-
-    function changeScopeTriggerLevelValue(parm) {
-        audioManager.realTimeInfo.scopeTriggerLevel = parm.value / parm.maxRange;
-        parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(4));
-    }
+    /*
+    // make sure canvas has already added this client
+    this.centerControl.addClientParm(
+        'Oscilloscope',
+        'bufferSize',
+        1024,
+        16384,
+        function(parm) {
+            if (parm.value < 512) {
+                parm.vale = 512;
+            }
+            audioManager.realTimeInfo.scopeAudioDataToDisplay = parm.value;
+            parm.cbTitle('Display Samples: ' + audioManager.realTimeInfo.scopeAudioDataToDisplay);
+        },
+        function(parm) {
+            parm.cbTitle('Display Samples: ' + audioManager.realTimeInfo.scopeAudioDataToDisplay);
+        });
+    */
 
     // make sure canvas has already added this client
     this.centerControl.addClientParm(
@@ -182,8 +193,14 @@ function AudioCanvas() {
         'triggerLevel',
         0 ,
         1000,
-        changeScopeTriggerLevelValue,
-        scopeTriggerLevelSelect);
+        function(parm) {
+            audioManager.realTimeInfo.scopeTriggerLevel = parm.value / parm.maxRange;
+            parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(3));
+        },
+        function(parm) {
+            parm.cbTitle('Trigger level: ' + audioManager.realTimeInfo.scopeTriggerLevel.toFixed(3));
+        });
+
 
     /* not really useful
     function zeroThresholdSelect(parm) {

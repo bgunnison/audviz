@@ -248,10 +248,15 @@ function findZeroCrossing(zeroCrossSamples, dataBuf) {
 // We AGC the peak display
 var peakVolScope = .001;
 
-function drawScope(canvasCtx, bufOffset, dataBuf, hue) {
+function drawScope(ch, canvasCtx, bufOffset, dataBuf, hue) {
     var xPix = canvasCtx.canvas.width;
-    var yPixh = canvasCtx.canvas.height / 2;
-    var scaler = yPixh / peakVolScope;
+    var yPixSize = canvasCtx.canvas.height / 4;
+    var yPixZero = canvasCtx.canvas.height / 4;
+    if (ch == 1) {
+        yPixZero *= 3;
+    }
+
+    var scaler = yPixSize / peakVolScope;
     var lcolor = 'hsla(' + hue + ', 100%,50%, 0.8)';
 
     canvasCtx.strokeStyle = lcolor;
@@ -263,12 +268,12 @@ function drawScope(canvasCtx, bufOffset, dataBuf, hue) {
     var dataLength = dataBuf.length - bufOffset;
     var skip = 0;
     var skipInc = xPix / dataBuf.length; //dataLength;  leaves a gap, but keeps waveform stable with trigger
-    var ldf = yPixh - Math.round(dataBuf[bufOffset] * scaler);
+    var ldf = yPixZero - Math.round(dataBuf[bufOffset] * scaler);
     var triggered = false;
 
     for (var d = bufOffset + 1; d < dataBuf.length; d++) {
 
-        var ldt = yPixh - Math.round(dataBuf[d] * scaler);
+        var ldt = yPixZero - Math.round(dataBuf[d] * scaler);
 
         var x = Math.round(skip);
         skip += skipInc;
@@ -301,9 +306,23 @@ function findTriggerLevel(level, dataBuf) {
         return 0;
     }
 
+    var tStart = false;
+    var tStartIndex = 0;
+    var tThresh = 0.05; // arbitrary threshold we must pass through to trigger
+
     for(var i = 0; i < dataBuf.length; i++) {
         if (dataBuf[i] >= level) {
-            return i;
+            if (tStart == false) {
+                tStart = true;
+                tStartIndex = i;
+            } else {
+                if (dataBuf[i] >= level + tThresh) {
+                    return tStartIndex; // triggered
+                }
+            }
+
+        } else {
+            tStart = false; // we didn't go over thresh
         }
     }
 
@@ -338,8 +357,8 @@ function displayOscilloscope(realTimeInfo) {
     realTimeInfo.canvasCtx.lineWidth = 3;
     realTimeInfo.canvasCtx.lineJoin = 'round';
     //canvasCtx.strokeStyle = gradient;
-    drawScope(realTimeInfo.canvasCtx, bufOffset, audioData[0], 200);
-    drawScope(realTimeInfo.canvasCtx, bufOffset, audioData[1], 100);
+    drawScope(0, realTimeInfo.canvasCtx, bufOffset, audioData[0], 200);
+    drawScope(1, realTimeInfo.canvasCtx, bufOffset, audioData[1], 100);
     realTimeInfo.canvasCtx.restore();
     realTimeInfo.audioData[audioData[2]].consumed = true;
 }
