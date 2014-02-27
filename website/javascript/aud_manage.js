@@ -165,7 +165,7 @@ function AudioManager(canvasManager) {
         // we can animate at audio rate, but this does not use requestAnimationFrame,
         // which is friendlier say if the canvas is in the background
         // so we do a copy of the realtime data in the callback
-        node.node.onaudioprocess = audioCaptureTimeDomain;
+        node.node.onaudioprocess = audioOnScriptProcess;
         audioGraphInfo.nodes['Audio Data'] = node;
 
         // script processor node needs to go somewhere to process
@@ -175,6 +175,24 @@ function AudioManager(canvasManager) {
         node.outputs = [];
         node.inputs = [];
         audioGraphInfo.nodes['Zero Gain'] = node;
+
+        // dynamics node to visualize envelope follower
+        // threshold -  default value is -24, with a nominal range of -100 to 0.
+        // knee         default value is 30, with a nominal range of 0 to 40.
+        // ratio        default value is 12, with a nominal range of 1 to 20.
+        // reduction    current amount of gain reduction that the compressor is applying to the signal. 
+        //              If fed no signal the value will be 0 (no gain reduction). The nominal range is -20 to 0.
+        // attack       default value is 0.003, with a nominal range of 0 to 1.
+        // release      default value is 0.250, with a nominal range of 0 to 1.
+        node = {};
+        node.node = audioContext.createDynamicsCompressor();
+        node.node.threshold.value = -50;
+        node.node.attack.value = .001;
+        node.node.release.value = .001;
+        node.outputs = [];
+        node.inputs = [];
+        audioGraphInfo.nodes['Dynamics'] = node;
+        
 
         // disconnect disconnects all output connections
         // So to switch between audio data and spectrum (to save real time)
@@ -299,6 +317,20 @@ function AudioManager(canvasManager) {
             {realTime: 0.0, consumed: true, ldata: bufs[0], rdata: bufs[1]},
             {realTime: 0.0, consumed: true, ldata: bufs[2], rdata: bufs[3]}
             ];
+
+        that.realTimeInfo.captureMethod = audioCaptureTimeDomain;
+    }
+
+    function createRealtimeEnvelopeBuffers() {
+        // collect 10s worth of data, so the script processor size
+        // and sample rate dictate how often we sample the envelope
+        var bufSize =  (20 * that.realTimeInfo.sampleRate) / audioGraphInfo.nodes['Audio Data'].node.bufferSize;
+        var env = {};
+        env.buffer = new Float32Array(bufSize);
+        env.index = 0;
+        env.min = -1000;
+        that.realTimeInfo.audioData = env;
+        that.realTimeInfo.captureMethod = audioCaptureEnvelope;
     }
 
     // connects audio for your viewing pleasure
@@ -315,6 +347,18 @@ function AudioManager(canvasManager) {
             if (graph === 'Spectrum') {
                 audioNodeConnect('Viz Gain',      'Spectrum');
             }
+
+            if (graph === 'Envelope') {
+                // the only way to get audio time based events for sampling dynamics data
+                // we don't use the data, just the callback
+                audioNodeConnect('Viz Gain', 'Audio Data');
+                audioNodeConnect('Audio Data', 'Zero Gain');
+                
+                audioNodeConnect('Viz Gain',  'Dynamics');
+                audioNodeConnect('Dynamics',  'Zero Gain');
+                audioNodeConnect('Zero Gain', 'Speakers');
+                createRealtimeEnvelopeBuffers();
+            }
         }
 
         if (action === 'disconnect') {
@@ -322,12 +366,24 @@ function AudioManager(canvasManager) {
                 // always disconnect speakers first so to not glitch (We are LIVE!)
                 audioNodeDisconnect('Zero Gain',    'Speakers');
                 audioNodeDisconnect('Audio Data',   'Zero Gain');
-                audioNodeDisconnect('Viz Gain',       'Audio Data');
+                audioNodeDisconnect('Viz Gain',     'Audio Data');
+
                 that.realTimeInfo.audioData = null;
             }
 
             if (graph === 'Spectrum') {
-                audioNodeDisconnect('Viz Gain',      'Spectrum');
+                audioNodeDisconnect('Viz Gain', 'Spectrum');
+            }
+
+            if (graph === 'Envelope') {
+                audioNodeDisconnect('Zero Gain', 'Speakers');
+                audioNodeDisconnect('Dynamics',  'Zero Gain');
+                audioNodeDisconnect('Viz Gain',  'Dynamics');
+
+                audioNodeDisconnect('Audio Data', 'Zero Gain');
+                audioNodeDisconnect('Viz Gain',   'Audio Data');
+
+                that.realTimeInfo.audioData = null;
             }
         }
     }
@@ -374,8 +430,6 @@ function AudioManager(canvasManager) {
             console.log(evt.loaded)
         }
     }
-
-
 
     function audioStartMicrophone(stream) {
         audioGraphInfo.nodes['Source'].node = audioContext.createMediaStreamSource(stream);
@@ -508,16 +562,13 @@ function AudioManager(canvasManager) {
     // Audio GUI hooks
     //
 
-    // sets up time domain data for visualization
-    this.doTimeDomain = function() {
+    // sets up graph for visualization
+    this.audioConnect = function (connection) {
         audioVizGraph('disconnect', 'Spectrum');
-        audioVizGraph('connect', 'Audio Data');
-    }
-
-    // sets up freq domain data for visualization
-    this.doFreqDomain = function() {
         audioVizGraph('disconnect', 'Audio Data');
-        audioVizGraph('connect', 'Spectrum');
+        audioVizGraph('disconnect', 'Envelope');
+
+        audioVizGraph('connect', connection);
     }
 
     function changeMasterGainValue(parm) {
@@ -565,6 +616,20 @@ function AudioManager(canvasManager) {
         }
     }
 
+    function envelopeThresholdSelect(parm) {
+        if (audioGraphInfo.nodes['Dynamics']) {
+            parm.cbTitle('Threshold: ' + audioGraphInfo.nodes['Dynamics'].node.threshold.value.toFixed(2));
+        }
+    }
+
+    function changeEnvelopeThresholdValue(parm) {
+        if (audioGraphInfo.nodes['Dynamics']) {
+            audioGraphInfo.nodes['Dynamics'].node.threshold.value = -parm.value;
+            parm.cbTitle('Threshold: ' + audioGraphInfo.nodes['Dynamics'].node.threshold.value.toFixed(2));
+        }
+    }
+
+    // canvas manager creates GUI clients then calls this to attach audio parms to the clients
     this.addControls = function() {
 
         // canvas owns controls for now
@@ -600,23 +665,42 @@ function AudioManager(canvasManager) {
             100 * 0.8 ,
             changeSmoothingValue,
             smoothingSelect);
+
+        // make sure canvas has already added this client
+        canvasManager.centerControl.addClientParm(
+            'Envelope',
+            'Threshold',
+            Math.round(audioGraphInfo.nodes['Dynamics'].node.threshold.value * -1.0),
+            100,
+            changeEnvelopeThresholdValue,
+            envelopeThresholdSelect);
     }
 
     // a database of all info needed by visualization
     this.realTimeInfo = {};
     // can't change this yet
     this.realTimeInfo.sampleRate = audioContext.sampleRate;
+    this.realTimeInfo.captureMethod = null;
     this.realTimeInfo.audioBuffersOverRun = 0;
     this.realTimeInfo.audioBuffersUnderRun = 0;
 
-    // realtime callback from script node.
-    // ping pong buffers
-    function audioCaptureTimeDomain(event) {
-
-        if (that.realTimeInfo.audioData == null) {
-            return;
+    function audioCaptureEnvelope(event) {
+        var env = that.realTimeInfo.audioData;
+        var d = audioGraphInfo.nodes['Dynamics'].node.reduction.value;
+        if (d < env.min) {
+            env.min = d;
         }
+        // translate the data to positive
+        env.buffer[env.index] = -d;
+        // envelope buffer is a circular buffer of N seconds
+        env.index++;
+        if (env.index == env.buffer.length) {
+            env.index = 0;
+        }
+    }
 
+    function audioCaptureTimeDomain(event) {
+        // ping pong buffers
         // these values are only valid in the scope of the onaudioprocess (this) event
         var fldata = event.inputBuffer.getChannelData(0);
         var frdata = event.inputBuffer.getChannelData(1);
@@ -651,6 +735,16 @@ function AudioManager(canvasManager) {
         }
 
         that.realTimeInfo.audioData[iBuf].consumed = false;
+    }
+
+    // realtime callback from script node.
+    function audioOnScriptProcess(event) {
+
+        if (that.realTimeInfo.captureMethod == null) {
+            return;
+        }
+
+        that.realTimeInfo.captureMethod(event);
     }
 
     // start ball rolling

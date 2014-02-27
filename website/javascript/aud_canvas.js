@@ -154,18 +154,23 @@ function AudioCanvas() {
 
     // hook up GUI to scroll thru viz types and their parms
     this.centerControl.addClient('Spectrum', function (client) {
-        audioManager.doFreqDomain();
+        audioManager.audioConnect('Spectrum');
         currentVizMethod = displaySpectrum;
     });
 
     this.centerControl.addClient('Lissajous', function(client) {
-        audioManager.doTimeDomain();
+        audioManager.audioConnect('Audio Data');
         currentVizMethod = displayLissajousScript;
     });
 
     this.centerControl.addClient('Oscilloscope', function(client) {
-        audioManager.doTimeDomain();
+        audioManager.audioConnect('Audio Data');
         currentVizMethod = displayOscilloscope;
+    });
+
+    this.centerControl.addClient('Envelope', function (client) {
+        audioManager.audioConnect('Envelope');
+        currentVizMethod = displayEnvelope;
     });
 
     /*

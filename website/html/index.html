@@ -48,22 +48,68 @@ Brian Gunnison (bgunnison@gmail.com)
     	background-color: blue;
     	font-size: 36px;
         font-family: 'Audiowide', sans-serif;
+        cursor: pointer;
     }
     </style>
 
     <meta charset="utf-8">
+    <script src="../javascript/jquery-1.9.1.js"></script>
     <script src="../javascript/aud_bkgnd.js"></script>
     </head>
 
     <body class="body">
     <script>
-        function PlayAud(fileToPlay) {
+        function playAud(fileToPlay) {
             //console.log(fileToPlay);
             localStorage.setItem('audToPlay', fileToPlay);
             window.location = 'audviz.html';
         }
 
+        function init() {
+            var platform = navigator.platform;
+            var eventType = 'click';
+            if( platform === 'iPad' || platform === 'iPhone' || platform === 'iPod' || platform === 'Android' || platform === 'Windows Phone'){
+                eventType = 'touchstart';
+            }
+
+            $('#440').on(eventType, function(e) {
+                playAud('../media/auds/440.mp3');
+            });
+
+            $('#sweep').on(eventType, function(e) {
+                playAud('../media/auds/sweep.mp3');
+            });
+
+            $('#whitenoise').on(eventType, function(e) {
+                playAud('../media/auds/whitenoise.mp3');
+            });
+
+            $('#oop').on(eventType, function(e) {
+                playAud('../media/auds/OOP.mp3');
+            });
+
+            $('#candle').on(eventType, function(e) {
+                playAud('../media/auds/Candle.mp3');
+            });
+
+            $('#userstream').on(eventType, function(e) {
+                playAud('userStream');
+            });
+
+            $('#soundcloud').on(eventType, function(e) {
+                playAud('http://api.soundcloud.com/tracks/113156246/stream' + '?client_id=b4b4b38abbcc5b70d606c21026d3ac0f');
+            });
+        }
+
+        function onLoad(e) {
+            init();
+        }
+
+        window.addEventListener('load', onLoad, false);
+
+
     </script>
+
     <div style="border: 0 none; position: fixed; right: 5px; top: 5px; z-index: 10;">
         <a href="https://github.com/bgunnison/audviz" target="_blank"><img src="../art/github-ribbon.png" style="border: 0 none;"></a>
     </div>
@@ -76,19 +122,19 @@ Brian Gunnison (bgunnison@gmail.com)
 
     <div style="position: absolute; left: 39px; top: 142px; z-index: 10; width: 1217px; height: 837px;">
   
-        <input class="aud_select" value="440 tone" onclick="PlayAud('../media/auds/440.mp3');" type="button"><br />
+        <input class="aud_select" id = "440" value="440 Hz tone"  type="button"><br />
         <br />
-        <input class="aud_select" value="Sweep" onclick="PlayAud('../media/auds/sweep.mp3');" type="button"><br />
+        <input class="aud_select" value="Sweep" id="sweep"  type="button"><br />
         <br />
-        <input class="aud_select" value="White noise" onclick="PlayAud('../media/auds/whitenoise.mp3');" type="button"><br />
+        <input class="aud_select" value="White noise" id="whitenoise" type="button"><br />
         <br />
-        <input class="aud_select" value="OOP" onclick="PlayAud('../media/auds/oop.mp3');" type="button"><br />
+        <input class="aud_select" value="OOP" id="oop" type="button"><br />
         <br />
-        <input class="aud_select" value="Candle" onclick="PlayAud('../media/auds/Candle.mp3');" type="button"><br />
+        <input class="aud_select" value="Candle" id="candle" type="button"><br />
         <br />
-        <input class="aud_select" value="Microphone" onclick="PlayAud('userStream');" type="button"><br />
+        <input class="aud_select" value="Microphone" id="userstream" type="button"><br />
         <br />
-        <input class="aud_select" value="SoundCloud" onclick="PlayAud('http://api.soundcloud.com/tracks/113156246/stream' + '?client_id=b4b4b38abbcc5b70d606c21026d3ac0f');" type="button"><p></p>
+        <input class="aud_select" value="SoundCloud" id="soundcloud" type="button"><p></p>
 
     </div>
 

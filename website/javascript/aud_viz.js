@@ -337,15 +337,15 @@ function displayOscilloscope(realTimeInfo) {
     }
 
     // favorite channel?
-   // var bufOffset = findZeroCrossing(realTimeInfo.zeroCrossingSamples, audioData[0]);
-   // if (bufOffset == 0) {
+    // var bufOffset = findZeroCrossing(realTimeInfo.zeroCrossingSamples, audioData[0]);
+    // if (bufOffset == 0) {
     //    bufOffset = findZeroCrossing(realTimeInfo.zeroCrossingSamples, audioData[1]);
     //}
 
     //favorite channel?
     var bufOffset = findTriggerLevel(realTimeInfo.scopeTriggerLevel, audioData[0]);
     if (bufOffset == 0 || bufOffset == -1) {
-       bufOffset = findTriggerLevel(realTimeInfo.scopeTriggerLevel, audioData[1]);
+        bufOffset = findTriggerLevel(realTimeInfo.scopeTriggerLevel, audioData[1]);
     }
 
     if (bufOffset == -1) {
@@ -362,3 +362,83 @@ function displayOscilloscope(realTimeInfo) {
     realTimeInfo.canvasCtx.restore();
     realTimeInfo.audioData[audioData[2]].consumed = true;
 }
+
+
+
+// We AGC the peak display
+var peakVolEnv = 1.0;
+
+function drawEnvelope(ch, realTimeInfo , hue) {
+    var canvasCtx = realTimeInfo.canvasCtx
+    var env = realTimeInfo.audioData;
+
+    var xPix = canvasCtx.canvas.width;
+    var yPixSize = canvasCtx.canvas.height - 5;
+    var yPixZero = canvasCtx.canvas.height;
+    if (ch == 1) {
+        yPixZero *= 3;
+    }
+
+    var scaler = yPixSize / peakVolEnv;
+    var lcolor = 'hsla(' + hue + ', 100%,50%, 0.8)';
+
+    canvasCtx.strokeStyle = lcolor;
+
+    hue += 10;
+    canvasCtx.shadowColor = 'hsla(' + hue + ', 100%,50%, 1)';
+
+    canvasCtx.beginPath();
+    var dataLength = env.buffer.length;
+    var skip = 0;
+    var skipInc = xPix / dataLength;
+    var dataIndex = env.index;
+    var ldf = yPixZero - Math.round(env.buffer[dataIndex] * scaler);
+    var triggered = false;
+
+    for (var d = 0; d < dataLength - 1; d++) {
+        dataIndex++;
+        if (dataIndex == dataLength) {
+            dataIndex = 0;
+        }
+        var ldt = yPixZero - Math.round(env.buffer[dataIndex] * scaler);
+
+        var x = Math.round(skip);
+        skip += skipInc;
+        var x1 = Math.round(skip);
+        if (x == x1) {
+            // average the two samples
+            var ave = (ldf + ldt)/2;
+            ldt = ave;
+        }
+
+        canvasCtx.moveTo(x, ldf);
+        canvasCtx.lineTo(x1, ldt);
+
+        ldf = ldt;
+
+        if (env.buffer[dataIndex] > peakVolEnv) {
+            peakVolEnv = env.buffer[dataIndex];
+        }
+    }
+
+    canvasCtx.stroke();
+}
+
+function displayEnvelope(realTimeInfo) {
+
+
+    if (realTimeInfo.audioData == null) {
+        return;
+    }
+
+    realTimeInfo.canvasCtx.save();
+    realTimeInfo.canvasCtx.shadowBlur = 30;
+    realTimeInfo.canvasCtx.lineWidth = 3;
+    realTimeInfo.canvasCtx.lineJoin = 'round';
+
+    drawEnvelope(0, realTimeInfo, 200);
+    //drawEnvelope(1, realTimeInfo, 100);
+
+    realTimeInfo.canvasCtx.restore();
+}
+
